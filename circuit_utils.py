@@ -453,8 +453,8 @@ def get_chronological_circuit_data(
             # Get path patching results
             path_patching_results = get_path_patching_results(
                 model,
+                clean_tokens,
                 corrupted_tokens,
-                clean_cache,
                 metric,
                 clean_logit_diff,
                 circuit[key].heads,
