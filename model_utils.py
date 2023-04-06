@@ -37,8 +37,15 @@ def load_model(model_hf_name, model_tl_name, revision, cache_dir):
         HookedTransformer: Model wrapped in TransformerLens.
     """
 
-    cache_dir = cache_dir + f"/{model_hf_name}/{revision}"
+    cache_model_name = model_hf_name
+    if cache_model_name.startswith("EleutherAI/"):
+        cache_model_name = cache_model_name[
+            11:
+        ]  # Remove "EleutherAI/" from model_hf_name
 
+    cache_dir = cache_dir + f"/{cache_model_name}/{revision}"
+
+    print(cache_dir)
     # Download model from HuggingFace
     source_model = AutoModelForCausalLM.from_pretrained(
         model_hf_name, revision=revision, cache_dir=cache_dir
