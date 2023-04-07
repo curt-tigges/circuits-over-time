@@ -105,8 +105,8 @@ print(
 clear_gpu_memory(model)
 
 # get values over time
-# ckpts = [round((2**i) / 1000) * 1000 if 2**i > 1000 else 2**i for i in range(18)]
-ckpts = [142000, 143000]
+ckpts = [round((2**i) / 1000) * 1000 if 2**i > 1000 else 2**i for i in range(18)]
+# ckpts = [142000, 143000]
 results_dict = cu.get_chronological_circuit_data(
     model_full_name,
     model_tl_full_name,
