@@ -23,7 +23,7 @@ def clear_gpu_memory(model):
     torch.cuda.empty_cache()
 
 
-def load_model(model_hf_name, model_tl_name, revision, cache_dir):
+def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
     """Loads a model from HuggingFace and wraps it in a TransformerLens.
 
     Args:
@@ -49,7 +49,7 @@ def load_model(model_hf_name, model_tl_name, revision, cache_dir):
     # Download model from HuggingFace
     source_model = AutoModelForCausalLM.from_pretrained(
         model_hf_name, revision=revision, cache_dir=cache_dir
-    )
+    ).half()
 
     # Load model into TransformerLens
     model = HookedTransformer.from_pretrained(
@@ -59,5 +59,7 @@ def load_model(model_hf_name, model_tl_name, revision, cache_dir):
         center_writing_weights=True,
         fold_ln=True,
     )
+
+    clear_gpu_memory(source_model)
 
     return model

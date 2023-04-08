@@ -25,8 +25,8 @@ model_tl_name = "pythia-1.3b"
 model_full_name = f"EleutherAI/{model_name}"
 model_tl_full_name = f"EleutherAI/{model_tl_name}"
 
-cache_dir = "/fsx/home-curt/saved_models"
-# cache_dir = "/media/curttigges/project-files/projects/circuits"
+# cache_dir = "/fsx/home-curt/saved_models"
+cache_dir = "/media/curttigges/project-files/projects/circuits"
 
 # load model
 model = load_model(
