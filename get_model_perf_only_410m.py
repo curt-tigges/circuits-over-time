@@ -33,24 +33,6 @@ model = load_model(
     model_full_name, model_tl_full_name, "step143000", cache_dir=cache_dir
 )
 
-# define circuit
-CircuitComponent = namedtuple(
-    "CircuitComponent", ["heads", "position", "receiver_type"]
-)
-
-circuit = {
-    "name-movers": CircuitComponent(
-        [(17, 10), (17, 6), (17, 11), (18, 0), (18, 8), (18, 13), (18, 14)],
-        -1,
-        "hook_q",
-    ),
-    "s2-inhibition": CircuitComponent(
-        [(11, 4), (13, 1), (13, 5), (16, 0)], 10, "hook_v"
-    ),
-    # "duplicate-name": CircuitComponent([], 10, 'head_v'),
-    # "induction": CircuitComponent([], 10, 'head_v')
-}
-
 # set up data
 prompts = [
     "When John and Mary went to the shops, John gave the bag to",
@@ -109,14 +91,19 @@ print(
 clear_gpu_memory(model)
 
 # get values over time
-ckpts = [round((2**i) / 1000) * 1000 if 2**i > 1000 else 2**i for i in range(18)]
-# ckpts = [142000, 143000]
-results_dict = cu.get_chronological_circuit_data(
+# ckpts = [round((2**i) / 1000) * 1000 if 2**i > 1000 else 2**i for i in range(18)]
+ckpts = (
+    [2**i for i in range(10)]
+    + [i * 1000 for i in range(1, 16)]
+    + [i * 5000 for i in range(3, 14)]
+    + [i * 10000 for i in range(7, 15)]
+)
+
+results_dict = cu.get_chronological_circuit_performance(
     model_full_name,
     model_tl_full_name,
     cache_dir,
     ckpts,
-    circuit=circuit,
     clean_tokens=clean_tokens,
     corrupted_tokens=corrupted_tokens,
     answer_token_indices=answer_token_indices,
@@ -125,7 +112,7 @@ results_dict = cu.get_chronological_circuit_data(
 # save results
 os.makedirs(f"results/{model_name}-no-dropout", exist_ok=True)
 torch.save(
-    results_dict["logit_diffs"], f"results/{model_name}-no-dropout/overall_perf.pt"
+    results_dict["logit_diffs"], f"results/{model_name}-no-dropout/logit_diffs.pt"
 )
 torch.save(
     results_dict["clean_baselines"],
@@ -135,13 +122,3 @@ torch.save(
     results_dict["corrupted_baselines"],
     f"results/{model_name}-no-dropout/corrupted_baselines.pt",
 )
-torch.save(
-    results_dict["attn_head_vals"], f"results/{model_name}-no-dropout/attn_head_perf.pt"
-)
-torch.save(
-    results_dict["value_patch_vals"], f"results/{model_name}-no-dropout/value_perf.pt"
-)
-with open(f"results/{model_name}-no-dropout/circuit_vals.pkl", "wb") as f:
-    pickle.dump(results_dict["circuit_vals"], f)
-with open(f"results/{model_name}-no-dropout/knockout_drops.pkl", "wb") as f:
-    pickle.dump(results_dict["knockout_drops"], f)

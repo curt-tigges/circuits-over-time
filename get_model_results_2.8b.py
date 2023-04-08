@@ -19,8 +19,8 @@ torch.set_grad_enabled(False)
 DO_SLOW_RUNS = True
 
 # define the model names
-model_name = "pythia-410m"
-model_tl_name = "pythia-350m"
+model_name = "pythia-2.8b"
+model_tl_name = "pythia-2.7b"
 
 model_full_name = f"EleutherAI/{model_name}"
 model_tl_full_name = f"EleutherAI/{model_tl_name}"
@@ -40,14 +40,10 @@ CircuitComponent = namedtuple(
 
 circuit = {
     "name-movers": CircuitComponent(
-        [(17, 10), (17, 6), (17, 11), (18, 0), (18, 8), (18, 13), (18, 14)],
-        -1,
-        "hook_q",
+        [(12, 15), (13, 1), (13, 6), (15, 15), (16, 13), (17, 7)], -1, "hook_q"
     ),
-    "s2-inhibition": CircuitComponent(
-        [(11, 4), (13, 1), (13, 5), (16, 0)], 10, "hook_v"
-    ),
-    # "duplicate-name": CircuitComponent([], 10, 'head_v'),
+    "s2-inhibition": CircuitComponent([(10, 7)], 10, "hook_v"),
+    # "duplicate-name": CircuitComponent([(7, 15), (9, 1)], 10, 'head_v'),
     # "induction": CircuitComponent([], 10, 'head_v')
 }
 

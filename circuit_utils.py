@@ -390,6 +390,68 @@ def get_knockout_perf_drop(model, heads_to_ablate, clean_tokens, metric):
 
 
 # =========================== CIRCUITS OVER TIME ===========================
+def get_chronological_circuit_performance(
+    model_hf_name,
+    model_tl_name,
+    cache_dir,
+    ckpts,
+    clean_tokens,
+    corrupted_tokens,
+    answer_token_indices,
+):
+    """Gets the performance of a model over time.
+
+    Args:
+        model_hf_name (str): Model name in HuggingFace.
+        model_tl_name (str): Model name in TorchLayers.
+        cache_dir (str): Cache directory.
+        ckpts (List[int]): Checkpoints to evaluate.
+        clean_tokens (Tensor): Clean tokens.
+        corrupted_tokens (Tensor): Corrupted tokens.
+        answer_token_indices (Tensor): Answer token indices.
+
+    Returns:
+        dict: Dictionary of performance over time.
+    """
+    logit_diff_vals = []
+    clean_ld_baselines = []
+    corrupted_ld_baselines = []
+
+    metric = partial(get_logit_diff, answer_token_indices=answer_token_indices)
+
+    previous_model = None
+
+    for ckpt in ckpts:
+
+        # Get model
+        if previous_model is not None:
+            clear_gpu_memory(previous_model)
+
+        print(f"Loading model for step {ckpt}...")
+        model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
+
+        # Get metric values
+        print("Getting metric values...")
+        clean_logits, clean_cache = model.run_with_cache(clean_tokens)
+        corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_tokens)
+
+        clean_logit_diff = metric(clean_logits).item()
+        corrupted_logit_diff = metric(corrupted_logits).item()
+
+        clean_ld_baselines.append(clean_logit_diff)
+        corrupted_ld_baselines.append(corrupted_logit_diff)
+
+        logit_diff_vals.append(clean_logit_diff)
+
+        previous_model = model
+
+    return {
+        "logit_diffs": torch.tensor(logit_diff_vals),
+        "clean_baselines": torch.tensor(clean_ld_baselines),
+        "corrupted_baselines": torch.tensor(corrupted_ld_baselines),
+    }
+
+
 def get_chronological_circuit_data(
     model_hf_name,
     model_tl_name,
@@ -400,14 +462,27 @@ def get_chronological_circuit_data(
     corrupted_tokens,
     answer_token_indices,
 ):
-    ckpt_count = len(ckpts)
+    """Extracts data from different circuit components over time.
+
+    Args:
+        model_hf_name (str): Model name in HuggingFace.
+        model_tl_name (str): Model name in TorchLayers.
+        cache_dir (str): Cache directory.
+        ckpts (List[int]): Checkpoints to evaluate.
+        circuit (dict): Circuit dictionary.
+        clean_tokens (Tensor): Clean tokens.
+        corrupted_tokens (Tensor): Corrupted tokens.
+        answer_token_indices (Tensor): Answer token indices.
+
+    Returns:
+        dict: Dictionary of data over time.
+    """
     logit_diff_vals = []
     clean_ld_baselines = []
     corrupted_ld_baselines = []
     attn_head_vals = []
     value_patch_vals = []
     circuit_vals = {key: [] for key in circuit.keys()}
-    activation_patching_vals = {key: [] for key in circuit.keys()}
     knockout_drops = {key: [] for key in circuit.keys()}
 
     metric = partial(get_logit_diff, answer_token_indices=answer_token_indices)
@@ -420,9 +495,11 @@ def get_chronological_circuit_data(
         if previous_model is not None:
             clear_gpu_memory(previous_model)
 
+        print(f"Loading model for step {ckpt}...")
         model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
 
         # Get metric values (relative to final performance)
+        print("Getting metric values...")
         clean_logits, clean_cache = model.run_with_cache(clean_tokens)
         corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_tokens)
 
@@ -435,6 +512,7 @@ def get_chronological_circuit_data(
         logit_diff_vals.append(clean_logit_diff)
 
         # Get attention pattern patching metrics
+        print("Getting attention pattern patching metrics...")
         attn_head_out_all_pos_act_patch_results = (
             patching.get_act_patch_attn_head_pattern_all_pos(
                 model, corrupted_tokens, clean_cache, metric
@@ -443,6 +521,7 @@ def get_chronological_circuit_data(
         attn_head_vals.append(attn_head_out_all_pos_act_patch_results)
 
         # Get value patching metrics
+        print("Getting value patching metrics...")
         value_patch_results = patching.get_act_patch_attn_head_v_all_pos(
             model, corrupted_tokens, clean_cache, metric
         )
@@ -451,6 +530,7 @@ def get_chronological_circuit_data(
         # Get path patching metrics for specific circuit parts
         for key in circuit.keys():
             # Get path patching results
+            print(f"Getting path patching metrics for {key}...")
             path_patching_results = get_path_patching_results(
                 model,
                 clean_tokens,
@@ -464,6 +544,7 @@ def get_chronological_circuit_data(
             circuit_vals[key].append(path_patching_results)
 
             # Get knockout performance drop
+            print(f"Getting knockout performance drop for {key}...")
             knockout_drops[key].append(
                 get_knockout_perf_drop(model, circuit[key].heads, clean_tokens, metric)
             )
