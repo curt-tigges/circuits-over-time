@@ -6,7 +6,7 @@ import pickle
 
 from torchtyping import TensorType as TT
 
-from model_utils import load_model, clear_gpu_memory
+from model_utils import load_model, load_model_tl, clear_gpu_memory
 import circuit_utils as cu
 
 # Settings
@@ -19,8 +19,8 @@ torch.set_grad_enabled(False)
 DO_SLOW_RUNS = True
 
 # define the model names
-model_name = "pythia-2.8b"
-model_tl_name = "pythia-2.7b"
+model_name = "pythia-6.9b"
+model_tl_name = "pythia-6.7b"
 
 model_full_name = f"EleutherAI/{model_name}"
 model_tl_full_name = f"EleutherAI/{model_tl_name}"
@@ -29,8 +29,12 @@ cache_dir = "/fsx/home-curt/saved_models"
 # cache_dir = "/media/curttigges/project-files/projects/circuits"
 
 # load model
+# model = load_model(
+#     model_full_name, model_tl_full_name, "step143000", cache_dir=cache_dir
+# )
+
 model = load_model(
-    model_full_name, model_tl_full_name, "step143000", cache_dir=cache_dir
+    model_full_name, model_tl_full_name, revision="step143000", cache_dir=cache_dir
 )
 
 # set up data
@@ -91,6 +95,7 @@ print(
 clear_gpu_memory(model)
 
 # get values over time
+# ckpts = [1, 2]
 ckpts = (
     [2**i for i in range(10)]
     + [i * 1000 for i in range(1, 16)]
