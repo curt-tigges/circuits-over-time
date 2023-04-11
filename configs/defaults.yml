@@ -1,0 +1,8 @@
+{
+  "model_name": "pythia-70m",
+  "model_tl_name": "pythia-19m",
+  "cache_dir": "/media/curttigges/project-files/projects/circuits",
+  #"/fsx/home-curt/saved_models"
+  "checkpoint_schedule": "exp_plus_detail",
+  "data_path": "./data/simple_dataset.txt",
+}
