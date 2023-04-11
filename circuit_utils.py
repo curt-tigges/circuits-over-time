@@ -440,7 +440,7 @@ def get_chronological_circuit_performance(
 
         clean_ld_baselines.append(clean_logit_diff)
         corrupted_ld_baselines.append(corrupted_logit_diff)
-
+        print(f"Logit diff: {clean_logit_diff}")
         logit_diff_vals.append(clean_logit_diff)
 
         previous_model = model

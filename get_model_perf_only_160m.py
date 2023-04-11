@@ -25,8 +25,8 @@ model_tl_name = "pythia-125m"
 model_full_name = f"EleutherAI/{model_name}"
 model_tl_full_name = f"EleutherAI/{model_tl_name}"
 
-# cache_dir = "/fsx/home-curt/saved_models"
-cache_dir = "/media/curttigges/project-files/projects/circuits"
+cache_dir = "/fsx/home-curt/saved_models"
+# cache_dir = "/media/curttigges/project-files/projects/circuits"
 
 # load model
 model = load_model(
@@ -91,8 +91,12 @@ print(
 clear_gpu_memory(model)
 
 # get values over time
-ckpts = [round((2**i) / 1000) * 1000 if 2**i > 1000 else 2**i for i in range(18)]
-# ckpts = [142000, 143000]
+ckpts = (
+    [2**i for i in range(10)]
+    + [i * 1000 for i in range(1, 16)]
+    + [i * 5000 for i in range(3, 14)]
+    + [i * 10000 for i in range(7, 15)]
+)
 results_dict = cu.get_chronological_circuit_performance(
     model_full_name,
     model_tl_full_name,
@@ -108,11 +112,11 @@ os.makedirs(f"results/{model_name}-no-dropout", exist_ok=True)
 torch.save(
     results_dict["logit_diffs"], f"results/{model_name}-no-dropout/logit_diffs.pt"
 )
-# torch.save(
-#     results_dict["clean_baselines"],
-#     f"results/{model_name}-no-dropout/clean_baselines.pt",
-# )
-# torch.save(
-#     results_dict["corrupted_baselines"],
-#     f"results/{model_name}-no-dropout/corrupted_baselines.pt",
-# )
+torch.save(
+    results_dict["clean_baselines"],
+    f"results/{model_name}-no-dropout/clean_baselines.pt",
+)
+torch.save(
+    results_dict["corrupted_baselines"],
+    f"results/{model_name}-no-dropout/corrupted_baselines.pt",
+)
