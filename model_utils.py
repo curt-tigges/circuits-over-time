@@ -49,9 +49,9 @@ def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
     # Download model from HuggingFace
     source_model = AutoModelForCausalLM.from_pretrained(
         model_hf_name, revision=revision, cache_dir=cache_dir
-    )
+    ).half()
 
-    source_model.to("cpu")
+    # source_model.to("cpu")
 
     # Load model into TransformerLens
     model = HookedTransformer.from_pretrained(
@@ -61,13 +61,12 @@ def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
         center_writing_weights=True,
         fold_ln=True,
         # move_state_dict_to_device=False,
-        device="cpu",
-    ).half()
-    # print(f"Model device: {model.cfg.device}")
-    model.cfg.device = device
-    model.to(device)
-    # clear_gpu_memory(source_model)
-    # print(f"Model device: {model.cfg.device}")
+        # device="cpu",
+    )
+
+    # model.cfg.device = device
+    # model.to(device)
+    clear_gpu_memory(source_model)
 
     return model
 
