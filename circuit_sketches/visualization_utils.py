@@ -48,7 +48,11 @@ else:
     device = "cpu"
 
 
-def plot_attention_heads(tensor, title="", top_n=0, range_x=[0, 2.5]):
+import pandas as pd
+import plotly.express as px
+
+
+def plot_attention_heads(tensor, title="", top_n=0, range_x=[0, 2.5], threshold=0.02):
     # convert the PyTorch tensor to a numpy array
     values = tensor.cpu().detach().numpy()
 
@@ -77,6 +81,11 @@ def plot_attention_heads(tensor, title="", top_n=0, range_x=[0, 2.5]):
 
     # create a dataframe with the flattened values and labels
     df = pd.DataFrame({"Logit Diff": flattened_values, "Attention Head": labels})
+    flat_value_array = np.array(flattened_values)
+    # print sum of all values over threshold
+    print(
+        f"Total logit diff contribution above threshold: {flat_value_array.sum():.2f}"
+    )
 
     # create the plot
     fig = px.bar(
@@ -179,6 +188,74 @@ def scatter_attention_and_contribution(
         )
         # Get the attention probability to the S answer
         prob = attn[0, 14, s_positions[i]]
+        df.append([prob, dot, "S", prompts[i]])
+
+    # Plot the results
+    viz_df = pd.DataFrame(
+        df, columns=[f"Attn Prob on Name", f"Dot w Name Embed", "Name Type", "text"]
+    )
+    fig = px.scatter(
+        viz_df,
+        x=f"Attn Prob on Name",
+        y=f"Dot w Name Embed",
+        color="Name Type",
+        hover_data=["text"],
+        color_discrete_sequence=["rgb(114,255,100)", "rgb(201,165,247)"],
+        title=f"How Strong {layer}.{head_idx} Writes in the Name Embed Direction Relative to Attn Prob",
+    )
+
+    if return_vals:
+        return viz_df
+    if return_fig:
+        return fig
+    else:
+        fig.show()
+
+
+def scatter_attention_and_contribution_logic(
+    model,
+    head,
+    prompts,
+    answer_residual_directions,
+    return_vals=False,
+    return_fig=False,
+):
+
+    df = []
+
+    layer, head_idx = head
+    # Get the attention output to the residual stream for the head
+    logits, cache = model.run_with_cache(prompts)
+    per_head_residual, labels = cache.stack_head_results(
+        layer=-1, pos_slice=-1, return_labels=True
+    )
+    scaled_residual_stack = cache.apply_ln_to_stack(
+        per_head_residual, layer=-1, pos_slice=-1
+    )
+    head_resid = scaled_residual_stack[layer * model.cfg.n_heads + head_idx]
+
+    # Loop over each prompt
+    for i in range(len(answer_residual_directions)):
+        # Get attention values
+        tokens, attn, names = get_attn_head_patterns(model, prompts[i], [head])
+
+        # For IO
+        # Get the attention contribution in the residual directions
+        dot = einsum(
+            "d_model, d_model -> ", head_resid[i], answer_residual_directions[i][0]
+        )
+
+        # Get the attention probability to the correct answer
+        prob = attn[0, 16, 4]
+        df.append([prob, dot, "Descriptor", prompts[i]])
+
+        # For S
+        # Get the attention contribution in the residual directions
+        dot = einsum(
+            "d_model, d_model -> ", head_resid[i], answer_residual_directions[i][1]
+        )
+        # Get the attention probability to the S answer
+        prob = attn[0, 16, 2]
         df.append([prob, dot, "S", prompts[i]])
 
     # Plot the results

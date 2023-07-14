@@ -1,0 +1,7 @@
+All birds are cold-blooded. Penguins are birds. Therefore, penguins are
+Amphibians are unable to breathe through their skin. Frogs are amphibians. Therefore, frogs are
+All plants are heterotrophs. Ferns are plants. Therefore, ferns are
+All birds are viviparous. Eagles are birds. Therefore, eagles are
+All flowers are angiosperms. Daisies are flowers. Therefore, daisies are
+
+cold, warm; unable, able; heter, aut; viv, ov; gym, ang;
