@@ -102,7 +102,7 @@ def visualize_tensor(tensor, labels, zmin=-1.0, zmax=1.0):
 
 
 # =============== METRIC UTILS ===============
-def get_logit_diff(logits, answer_token_indices):
+def get_logit_diff(logits, answer_token_indices, per_prompt=False):
     """Gets the difference between the logits of the provided tokens (e.g., the correct and incorrect tokens in IOI)
 
     Args:
@@ -117,7 +117,10 @@ def get_logit_diff(logits, answer_token_indices):
         logits = logits[:, -1, :]
     correct_logits = logits.gather(1, answer_token_indices[:, 0].unsqueeze(1))
     incorrect_logits = logits.gather(1, answer_token_indices[:, 1].unsqueeze(1))
-    return (correct_logits - incorrect_logits).mean()
+    if per_prompt:
+        return (correct_logits - incorrect_logits).squeeze()
+    else:
+        return (correct_logits - incorrect_logits).mean()
 
 
 def ioi_metric(logits, clean_baseline, corrupted_baseline, answer_token_indices):

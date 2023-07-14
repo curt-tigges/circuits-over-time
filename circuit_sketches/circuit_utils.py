@@ -116,7 +116,7 @@ def visualize_tensor(tensor, labels, zmin=-1.0, zmax=1.0):
 
 
 # =============== METRIC UTILS ===============
-def get_logit_diff(logits, answer_token_indices):
+def get_logit_diff(logits, answer_token_indices, per_prompt=False):
     """Gets the difference between the logits of the provided tokens (e.g., the correct and incorrect tokens in IOI)
 
     Args:
@@ -131,6 +131,9 @@ def get_logit_diff(logits, answer_token_indices):
         logits = logits[:, -1, :]
     correct_logits = logits.gather(1, answer_token_indices[:, 0].unsqueeze(1))
     incorrect_logits = logits.gather(1, answer_token_indices[:, 1].unsqueeze(1))
+    if per_prompt:
+        print(correct_logits - incorrect_logits)
+
     return (correct_logits - incorrect_logits).mean()
 
 
@@ -219,7 +222,8 @@ def path_patching(
     orig_tokens,
     sender_heads,
     receiver_hooks,
-    positions=-1,
+    sender_positions=-1,
+    receiver_positions=-1,
 ):
     """Patches a model using the provided patch tokens.
 
@@ -298,7 +302,7 @@ def path_patching(
         )
         hook = partial(
             patch_pos_head_vector,
-            pos=positions,
+            pos=sender_positions,
             head_index=head_idx,
             patch_cache=sender_cache,
         )
@@ -317,7 +321,7 @@ def path_patching(
         #     warnings.warn("Torch all close for {}".format(hook_name))
         hook = partial(
             patch_pos_head_vector,
-            pos=positions,
+            pos=receiver_positions,
             head_index=head_idx,
             patch_cache=receiver_cache,
         )

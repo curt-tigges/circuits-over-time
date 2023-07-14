@@ -1,0 +1,10 @@
+All mammals are warm-blooded. Cats are mammals. Therefore, cats are
+All mammals are cold-blooded. Cats are mammals. Therefore, cats are
+All flowers are angiosperms. Roses are flowers. Therefore, roses are
+All flowers are gymnosperms. Roses are flowers. Therefore, roses are
+All birds are oviparous. Eagles are birds. Therefore, eagles are
+All birds are viviparous. Eagles are birds. Therefore, eagles are
+All mammals are milk-producers. Rats are mammals. Therefore, rats are
+All mammals are juice-producers. Rats are mammals. Therefore, rats are
+
+ warm, cold; cold, warm; ang, gym; gym, ang; ov, viv; viv, ov; milk, juice; juice, milk;
