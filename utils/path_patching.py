@@ -15,7 +15,11 @@ from jaxtyping import Float, Int
 from collections import defaultdict
 import einops
 import re
-
+import pickle
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 # %%
 
 _SeqPos = Optional[Int[Tensor, "batch pos"]]
@@ -618,8 +622,24 @@ def _path_patch_single(
         return patching_metric(logits)
     
 
-
-
+def get_batch_pos_tensor(
+    cache: ActivationCache
+):
+    keys_to_try = [
+        'attn.hook_q',
+        'attn.hook_k',
+        'attn.hook_v',
+        'hook_resid_pre',
+        'hook_resid_mid',
+        'hook_resid_post',
+    ]
+    layers = cache.model.cfg.n_layers
+    for key in keys_to_try:
+        for layer in range(layers):
+            key_str = f"blocks.{layer}.{key}"
+            if key_str in cache.keys():
+                return cache[key_str]
+    raise ValueError("Couldn't find a tensor with batch and pos dimensions in the cache.")
 
 
 def path_patch(
@@ -732,7 +752,8 @@ def path_patch(
     
     # If we're fixing sender(s), and iterating over receivers:
     if isinstance(receiver_nodes, IterNode):
-        receiver_nodes_dict = receiver_nodes.get_node_dict(model, new_cache["q", 0])
+        batch_pos_tensor = get_batch_pos_tensor(new_cache)
+        receiver_nodes_dict = receiver_nodes.get_node_dict(model, batch_pos_tensor)
         progress_bar = tqdm(total=sum(len(node_list) for node_list in receiver_nodes_dict.values()))
         for receiver_node_name, receiver_node_list in receiver_nodes_dict.items():
             progress_bar.set_description(f"Patching over {receiver_node_name!r}")
@@ -750,7 +771,8 @@ def path_patch(
     
     # If we're fixing receiver(s), and iterating over senders:
     elif isinstance(sender_nodes, IterNode):
-        sender_nodes_dict = sender_nodes.get_node_dict(model, new_cache["q", 0])
+        batch_pos_tensor = get_batch_pos_tensor(new_cache)
+        sender_nodes_dict = sender_nodes.get_node_dict(model, batch_pos_tensor)
         progress_bar = tqdm(total=sum(len(node_list) for node_list in sender_nodes_dict.values()))
         for sender_node_name, sender_node_list in sender_nodes_dict.items():
             progress_bar.set_description(f"Patching over {sender_node_name!r}")
@@ -784,7 +806,10 @@ def _act_patch_single(
     # Call this at the start, just in case! This also clears context by default
     model.reset_hooks()
 
-    batch_size, seq_len = new_cache["z", 0].shape[:2]
+    if isinstance(orig_input, Tensor):
+        batch_size, seq_len = orig_input.shape
+    else:
+        batch_size, seq_len = model.to_tokens(orig_input).shape
 
     if isinstance(patching_nodes, Node): patching_nodes = [patching_nodes]
     for node in patching_nodes:
@@ -811,6 +836,8 @@ def act_patch(
     new_cache: Optional[ActivationCache] = None,
     apply_metric_to_cache: bool = False,
     verbose: bool = False,
+    leave: bool = True,
+    disable: bool = False,
 ) -> Float[Tensor, "..."]:
 
     assert (new_input is not None) or (new_cache is not None), "Must specify either new_input or new_cache."
@@ -836,8 +863,9 @@ def act_patch(
 
     # If we're iterating over nodes:
     results_dict = defaultdict(list)
-    nodes_dict = patching_nodes.get_node_dict(model, new_cache["q", 0])
-    progress_bar = tqdm(total=sum(len(node_list) for node_list in nodes_dict.values()))
+    batch_pos_tensor = get_batch_pos_tensor(new_cache)
+    nodes_dict = patching_nodes.get_node_dict(model, batch_pos_tensor)
+    progress_bar = tqdm(total=sum(len(node_list) for node_list in nodes_dict.values()), leave=leave, disable=disable)
     for node_name, node_list in nodes_dict.items():
         progress_bar.set_description(f"Patching {node_name!r}")
         for (seq_pos, node) in node_list:
