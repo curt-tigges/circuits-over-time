@@ -394,8 +394,7 @@ def get_knockout_perf_drop(model, heads_to_ablate, clean_tokens, metric):
 
 # =========================== CIRCUITS OVER TIME ===========================
 def get_chronological_circuit_performance(
-    model_hf_name,
-    model_tl_name,
+    model_name,
     cache_dir,
     ckpts,
     clean_tokens,
@@ -431,7 +430,7 @@ def get_chronological_circuit_performance(
             clear_gpu_memory(previous_model)
 
         print(f"Loading model for step {ckpt}...")
-        model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
+        model = load_model(model_name, f"step{ckpt}", cache_dir)
 
         # Get metric values
         print("Getting metric values...")
@@ -456,8 +455,7 @@ def get_chronological_circuit_performance(
 
 
 def get_chronological_circuit_data(
-    model_hf_name,
-    model_tl_name,
+    model_name,
     cache_dir,
     ckpts,
     circuit,
@@ -499,7 +497,7 @@ def get_chronological_circuit_data(
             clear_gpu_memory(previous_model)
 
         print(f"Loading model for step {ckpt}...")
-        model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
+        model = load_model(model_name, f"step{ckpt}", cache_dir)
 
         # Get metric values (relative to final performance)
         print("Getting metric values...")
