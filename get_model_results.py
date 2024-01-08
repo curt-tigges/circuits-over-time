@@ -110,7 +110,6 @@ clear_gpu_memory(model)
 ckpts = [142000, 143000]
 results_dict = cu.get_chronological_circuit_data(
     model_full_name,
-    model_full_name,
     cache_dir,
     ckpts,
     circuit=circuit,
