@@ -39,6 +39,10 @@ model = load_model(
     model_full_name, "step143000", cache_dir=cache_dir
 )
 
+CircuitComponent = namedtuple(
+    "CircuitComponent", ["heads", "position", "receiver_type"]
+)
+
 # Load the circuit dictionary from the specified file
 circuit_root = "results/circuits/"
 with open(circuit_root + circuit_file, 'rb') as f:
