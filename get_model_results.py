@@ -39,19 +39,10 @@ model = load_model(
     model_full_name, "step143000", cache_dir=cache_dir
 )
 
-# define circuit
-CircuitComponent = namedtuple(
-    "CircuitComponent", ["heads", "position", "receiver_type"]
-)
-
-circuit = {
-    "name-movers": CircuitComponent(
-        [(12, 15), (13, 1), (13, 6), (15, 15), (16, 13), (17, 7)], -1, "hook_q"
-    ),
-    "s2-inhibition": CircuitComponent([(10, 7)], 10, "hook_v"),
-    # "duplicate-name": CircuitComponent([(7, 15), (9, 1)], 10, 'head_v'),
-    # "induction": CircuitComponent([], 10, 'head_v')
-}
+# Load the circuit dictionary from the specified file
+circuit_root = "/results/circuits/"
+with open(circuit_root + circuit_file, 'rb') as f:
+    circuit = pickle.load(f)
 
 # set up data
 prompts = [
