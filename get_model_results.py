@@ -1,13 +1,24 @@
 import os
+import pickle
+import torch
+import argparse
 from collections import namedtuple
 
-import torch
-import pickle
-
+import circuit_utils as cu
+from model_utils import load_model, clear_gpu_memory
 from torchtyping import TensorType as TT
 
-from model_utils import load_model, clear_gpu_memory
-import circuit_utils as cu
+# Set up argument parser
+parser = argparse.ArgumentParser(description='Run model with specified settings')
+parser.add_argument('model_name', type=str, help='Name of the model to load')
+parser.add_argument('circuit_file', type=str, help='Filename for the circuit dictionary')
+
+# Parse arguments
+args = parser.parse_args()
+
+# Use the parsed model name and circuit file
+model_name = args.model_name
+circuit_file = args.circuit_file
 
 # Settings
 if torch.cuda.is_available():
@@ -18,19 +29,14 @@ else:
 torch.set_grad_enabled(False)
 DO_SLOW_RUNS = True
 
-# define the model names
-model_name = "pythia-1.4b"
-model_tl_name = "pythia-1.3b"
-
 model_full_name = f"EleutherAI/{model_name}"
-model_tl_full_name = f"EleutherAI/{model_tl_name}"
 
-cache_dir = "/fsx/home-curt/saved_models"
+cache_dir = "/model_cache"
 # cache_dir = "/media/curttigges/project-files/projects/circuits"
 
 # load model
 model = load_model(
-    model_full_name, model_tl_full_name, "step143000", cache_dir=cache_dir
+    model_full_name, "step143000", cache_dir=cache_dir
 )
 
 # define circuit
@@ -109,7 +115,7 @@ clear_gpu_memory(model)
 ckpts = [142000, 143000]
 results_dict = cu.get_chronological_circuit_data(
     model_full_name,
-    model_tl_full_name,
+    model_full_name,
     cache_dir,
     ckpts,
     circuit=circuit,
