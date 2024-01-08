@@ -40,7 +40,7 @@ model = load_model(
 )
 
 # Load the circuit dictionary from the specified file
-circuit_root = "/results/circuits/"
+circuit_root = "results/circuits/"
 with open(circuit_root + circuit_file, 'rb') as f:
     circuit = pickle.load(f)
 
