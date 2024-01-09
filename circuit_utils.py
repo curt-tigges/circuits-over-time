@@ -12,7 +12,7 @@ import ipywidgets as widgets
 from IPython.display import display
 
 from model_utils import load_model, clear_gpu_memory
-from metric_utils import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate
+from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate
 
 if torch.cuda.is_available():
     device = int(os.environ.get("LOCAL_RANK", 0))
