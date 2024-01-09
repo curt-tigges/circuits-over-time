@@ -8,7 +8,10 @@ import yaml
 
 from torchtyping import TensorType as TT
 
-from model_utils import load_model, clear_gpu_memory
+from utils.model_utils import load_model, clear_gpu_memory
+from utils.data_utils import generate_data_and_caches
+from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate
+
 import circuit_utils as cu
 
 # Settings
@@ -70,40 +73,19 @@ def main(args):
     )
 
     # set up data
-    prompts, answers = read_data(config["data_path"])
+    N = 70
+    ioi_dataset, abc_dataset, ioi_cache, abc_cache, ioi_metric_noising = generate_data_and_caches(model, N, verbose=True)
 
-    clean_tokens, corrupted_tokens, answer_token_indices = cu.set_up_data(
-        model, prompts, answers
-    )
 
     # get baselines
-    clean_logits, clean_cache = model.run_with_cache(clean_tokens)
-    corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_tokens)
+    clean_logits, clean_cache = model.run_with_cache(ioi_dataset.toks)
+    corrupted_logits, corrupted_cache = model.run_with_cache(abc_dataset.toks)
 
-    clean_logit_diff = cu.get_logit_diff(clean_logits, answer_token_indices).item()
+    clean_logit_diff = _logits_to_mean_logit_diff(clean_logits, ioi_dataset)
     print(f"Clean logit diff: {clean_logit_diff:.4f}")
 
-    corrupted_logit_diff = cu.get_logit_diff(
-        corrupted_logits, answer_token_indices
-    ).item()
+    corrupted_logit_diff = _logits_to_mean_logit_diff(corrupted_logits, ioi_dataset)
     print(f"Corrupted logit diff: {corrupted_logit_diff:.4f}")
-
-    CLEAN_BASELINE = clean_logit_diff
-    CORRUPTED_BASELINE = corrupted_logit_diff
-
-    clean_baseline_ioi = cu.ioi_metric(
-        clean_logits, CLEAN_BASELINE, CORRUPTED_BASELINE, answer_token_indices
-    )
-    corrupted_baseline_ioi = cu.ioi_metric(
-        corrupted_logits, CLEAN_BASELINE, CORRUPTED_BASELINE, answer_token_indices
-    )
-
-    print(
-        f"Clean Baseline is 1: {cu.ioi_metric(clean_logits, CLEAN_BASELINE, CORRUPTED_BASELINE, answer_token_indices).item():.4f}"
-    )
-    print(
-        f"Corrupted Baseline is 0: {cu.ioi_metric(corrupted_logits, CLEAN_BASELINE, CORRUPTED_BASELINE, answer_token_indices).item():.4f}"
-    )
 
     clear_gpu_memory(model)
 
@@ -131,9 +113,9 @@ def main(args):
         model_tl_full_name,
         cache_dir,
         ckpts,
-        clean_tokens=clean_tokens,
-        corrupted_tokens=corrupted_tokens,
-        answer_token_indices=answer_token_indices,
+        clean_tokens=ioi_dataset.toks,
+        corrupted_tokens=abc_dataset.toks,
+        dataset=ioi_dataset
     )
 
     # save results
