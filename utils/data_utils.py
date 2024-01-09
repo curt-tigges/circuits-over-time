@@ -50,7 +50,7 @@ from functools import partial
 from torchtyping import TensorType as TT
 
 if torch.cuda.is_available():
-    device = int(os.environ.get("LOCAL_RANK", 0))
+    device = "cuda"
 else:
     device = "cpu"
 
