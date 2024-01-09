@@ -23,7 +23,7 @@ def clear_gpu_memory(model):
     torch.cuda.empty_cache()
 
 
-def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
+def load_model(model_name, revision, cache_dir, fp16=False):
     """Loads a model from HuggingFace and wraps it in a TransformerLens.
 
     Args:
@@ -37,7 +37,7 @@ def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
         HookedTransformer: Model wrapped in TransformerLens.
     """
 
-    cache_model_name = model_hf_name
+    cache_model_name = model_name
     if cache_model_name.startswith("EleutherAI/"):
         cache_model_name = cache_model_name[
             11:
@@ -47,16 +47,15 @@ def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
 
     print(cache_dir)
     # Download model from HuggingFace
-    source_model = AutoModelForCausalLM.from_pretrained(
-        model_hf_name, revision=revision, cache_dir=cache_dir
-    ).half()
+    # source_model = AutoModelForCausalLM.from_pretrained(
+    #     model_name, revision=revision, cache_dir=cache_dir
+    # ).half()
 
     # source_model.to("cpu")
 
     # Load model into TransformerLens
     model = HookedTransformer.from_pretrained(
-        model_tl_name,
-        hf_model=source_model,
+        model_name,
         center_unembed=True,
         center_writing_weights=True,
         fold_ln=True,
@@ -66,7 +65,7 @@ def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
 
     # model.cfg.device = device
     # model.to(device)
-    clear_gpu_memory(source_model)
+    #clear_gpu_memory(source_model)
 
     return model
 
