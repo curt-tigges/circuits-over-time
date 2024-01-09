@@ -436,9 +436,9 @@ def get_chronological_circuit_performance(
     clean_rank_0_rate_baselines = []
     corrupted_rank_0_rate_baselines = []
 
-    get_logit_diff = partial(_logits_to_mean_logit_diff, dataset=dataset)
-    get_accuracy = partial(_logits_to_mean_accuracy, dataset=dataset)
-    get_rank_0_rate = partial(_logits_to_rank_0_rate, dataset=dataset)
+    get_logit_diff = partial(_logits_to_mean_logit_diff, ioi_dataset=dataset)
+    get_accuracy = partial(_logits_to_mean_accuracy, ioi_dataset=dataset)
+    get_rank_0_rate = partial(_logits_to_rank_0_rate, ioi_dataset=dataset)
 
     previous_model = None
 
