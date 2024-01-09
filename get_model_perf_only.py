@@ -121,15 +121,39 @@ def main(args):
     # save results
     os.makedirs(f"results/{model_name}-no-dropout", exist_ok=True)
     torch.save(
-        results_dict["logit_diffs"], f"results/{model_name}-no-dropout/overall_perf.pt"
+        results_dict["logit_diffs"], f"results/{model_name}-no-dropout/logit_diffs.pt"
     )
     torch.save(
-        results_dict["clean_baselines"],
-        f"results/{model_name}-no-dropout/clean_baselines.pt",
+        results_dict["ld_clean_baselines"],
+        f"results/{model_name}-no-dropout/ld_clean_baselines.pt",
     )
     torch.save(
-        results_dict["corrupted_baselines"],
-        f"results/{model_name}-no-dropout/corrupted_baselines.pt",
+        results_dict["ld_corrupted_baselines"],
+        f"results/{model_name}-no-dropout/ld_corrupted_baselines.pt",
+    )
+    torch.save(
+        results_dict["accuracy_vals"],
+        f"results/{model_name}-no-dropout/accuracy_vals.pt",
+    )
+    torch.save(
+        results_dict["accuracy_clean_baselines"],
+        f"results/{model_name}-no-dropout/acc_clean_baselines.pt",
+    )
+    torch.save(
+        results_dict["accuracy_corrupted_baselines"],
+        f"results/{model_name}-no-dropout/acc_corrupted_baselines.pt",
+    )
+    torch.save(
+        results_dict["rank_0_rate_vals"],
+        f"results/{model_name}-no-dropout/rank_0_rate_vals.pt",
+    )
+    torch.save(
+        results_dict["rank_0_rate_clean_baselines"],
+        f"results/{model_name}-no-dropout/rank_clean_baselines.pt",
+    )
+    torch.save(
+        results_dict["rank_0_rate_corrupted_baselines"],
+        f"results/{model_name}-no-dropout/rank_corrupted_baselines.pt",
     )
 
 
