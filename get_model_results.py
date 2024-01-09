@@ -34,7 +34,7 @@ DO_SLOW_RUNS = True
 
 model_full_name = f"EleutherAI/{model_name}"
 
-cache_dir = "/model_cache"
+cache_dir = "model_cache"
 # cache_dir = "/media/curttigges/project-files/projects/circuits"
 
 # load model

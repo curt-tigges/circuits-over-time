@@ -1,0 +1,6 @@
+{
+  "model_name": "pythia-160m",
+  "model_tl_name": "pythia-160m",
+  "cache_dir": "model_cache",
+  "checkpoint_schedule": "other",
+}
