@@ -53,7 +53,7 @@ with open(circuit_root + circuit_file, 'rb') as f:
 
 # set up data
 N = 70
-ioi_dataset, abc_dataset, ioi_cache, abc_cache, ioi_metric_noising = generate_data_and_caches(N, verbose=True)
+ioi_dataset, abc_dataset, ioi_cache, abc_cache, ioi_metric_noising = generate_data_and_caches(model, N, verbose=True)
 
 # get baselines
 clean_logits, clean_cache = model.run_with_cache(ioi_dataset.toks)
