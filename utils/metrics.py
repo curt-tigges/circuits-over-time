@@ -1,8 +1,16 @@
+import os
+import torch
 from torch import Tensor
 from jaxtyping import Float
 
 
 from path_patching_cm.ioi_dataset import IOIDataset
+
+
+if torch.cuda.is_available():
+    device = int(os.environ.get("LOCAL_RANK", 0))
+else:
+    device = "cpu"
 
 
 def _logits_to_mean_logit_diff(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset, per_prompt=False):
@@ -40,11 +48,10 @@ def _logits_to_rank_0_rate(logits: Float[Tensor, "batch seq d_vocab"], ioi_datas
     Returns rate of the model ranking the correct answer as the most probable.
     '''
     # Only the final logits are relevant for the answer
-    # Get the logits corresponding to the indirect object / subject tokens respectively
-    io_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.io_tokenIDs]
+    # Get the logits corresponding to the indirect object tokens
+    final_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"]]
     
-    # Find accuracy
-    return (io_logits.argmax(dim=-1) == ioi_dataset.io_tokenIDs).float().mean()
+    return (final_logits.argmax(dim=-1) == torch.tensor(ioi_dataset.io_tokenIDs).to(device)).float().mean()
 
 
 def _ioi_metric_noising(

@@ -12,6 +12,7 @@ import ipywidgets as widgets
 from IPython.display import display
 
 from model_utils import load_model, clear_gpu_memory
+from metric_utils import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate
 
 if torch.cuda.is_available():
     device = int(os.environ.get("LOCAL_RANK", 0))
@@ -342,6 +343,9 @@ def get_path_patching_results(
                 ],
                 positions=position,
             )
+
+            
+
             path_patched_logits = model.run_with_hooks(
                 clean_tokens, fwd_hooks=pass_d_hooks
             )
@@ -455,8 +459,8 @@ def get_chronological_circuit_performance(
 
 
 def get_chronological_circuit_data(
-    model_name,
-    cache_dir,
+    model_name: str,
+    cache_dir: str,
     ckpts,
     circuit,
     clean_tokens,
@@ -532,6 +536,7 @@ def get_chronological_circuit_data(
         for key in circuit.keys():
             # Get path patching results
             print(f"Getting path patching metrics for {key}...")
+            # TODO: Replace with Callum's patch patching code
             path_patching_results = get_path_patching_results(
                 model,
                 clean_tokens,
