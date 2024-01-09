@@ -35,6 +35,18 @@ def _logits_to_mean_accuracy(logits: Float[Tensor, "batch seq d_vocab"], ioi_dat
     return (answer_logit_diff > 0).float().mean()
 
 
+def _logits_to_rank_0_rate(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset):
+    '''
+    Returns rate of the model ranking the correct answer as the most probable.
+    '''
+    # Only the final logits are relevant for the answer
+    # Get the logits corresponding to the indirect object / subject tokens respectively
+    io_logits: Float[Tensor, "batch"] = logits[range(logits.size(0)), ioi_dataset.word_idx["end"], ioi_dataset.io_tokenIDs]
+    
+    # Find accuracy
+    return (io_logits.argmax(dim=-1) == ioi_dataset.io_tokenIDs).float().mean()
+
+
 def _ioi_metric_noising(
         logits: Float[Tensor, "batch seq d_vocab"],
         clean_logit_diff: float,
