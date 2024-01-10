@@ -1,64 +1,34 @@
 import os
 from functools import partial
+from collections import namedtuple
 
 import torch
+from torch import Tensor
+from typing import List, Optional, Union, Dict
+from path_patching_cm.ioi_dataset import IOIDataset
 from torchtyping import TensorType as TT
 
+
 import transformer_lens.patching as patching
-from fancy_einsum import einsum
+from transformer_lens import HookedTransformer
 
 import plotly.graph_objs as go
 import torch
 import ipywidgets as widgets
 from IPython.display import display
 
-from model_utils import load_model, clear_gpu_memory
+from utils.model_utils import load_model, clear_gpu_memory
+from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate
 
 if torch.cuda.is_available():
     device = int(os.environ.get("LOCAL_RANK", 0))
 else:
     device = "cpu"
 
-# =============== DATA UTILS ===============
-def set_up_data(model, prompts, answers):
-    """Sets up data for a given model, prompts, and answers.
-
-    Args:
-        model (HookedTransformer): Model to set up data for.
-        prompts (List[str]): List of prompts to use.
-        answers (List[List[str]]): List of answers to use.
-
-    Returns:
-        Tuple[List[str], List[str], torch.Tensor]: Clean tokens, corrupted tokens, and answer token indices.
-    """
-    clean_tokens = model.to_tokens(prompts)
-    # Swap each adjacent pair of tokens
-    corrupted_tokens = clean_tokens[
-        [(i + 1 if i % 2 == 0 else i - 1) for i in range(len(clean_tokens))]
-    ]
-
-    answer_token_indices = torch.tensor(
-        [
-            [model.to_single_token(answers[i][j]) for j in range(2)]
-            for i in range(len(answers))
-        ],
-        device=model.cfg.device,
-    )
-
-    return clean_tokens, corrupted_tokens, answer_token_indices
-
-
-def read_data(file_path):
-    with open(file_path, "r") as f:
-        content = f.read()
-
-    prompts_str, answers_str = content.split("\n\n")
-    prompts = prompts_str.split("\n")  # Remove the last empty item
-    answers = [
-        tuple(answer.split(",")) for answer in answers_str.split(";")[:-1]
-    ]  # Remove the last empty item
-
-    return prompts, answers
+# =============== CIRCUIT ===============
+CircuitComponent = namedtuple(
+    "CircuitComponent", ["heads", "position", "receiver_type"]
+)
 
 
 # =============== VISUALIZATION UTILS ===============
@@ -115,60 +85,6 @@ def visualize_tensor(tensor, labels, zmin=-1.0, zmax=1.0):
         display(plot_slice(0))
 
 
-# =============== METRIC UTILS ===============
-def get_logit_diff(logits, answer_token_indices, per_prompt=False):
-    """Gets the difference between the logits of the provided tokens (e.g., the correct and incorrect tokens in IOI)
-
-    Args:
-        logits (torch.Tensor): Logits to use.
-        answer_token_indices (torch.Tensor): Indices of the tokens to compare.
-
-    Returns:
-        torch.Tensor: Difference between the logits of the provided tokens.
-    """
-    if len(logits.shape) == 3:
-        # Get final logits only
-        logits = logits[:, -1, :]
-    correct_logits = logits.gather(1, answer_token_indices[:, 0].unsqueeze(1))
-    incorrect_logits = logits.gather(1, answer_token_indices[:, 1].unsqueeze(1))
-    if per_prompt:
-        print(correct_logits - incorrect_logits)
-
-    return (correct_logits - incorrect_logits).mean()
-
-
-def ioi_metric(logits, clean_baseline, corrupted_baseline, answer_token_indices):
-    """Computes the IOI metric for a given set of logits, baselines, and answer token indices. Metric is relative to the
-    provided baselines.
-
-    Args:
-        logits (torch.Tensor): Logits to use.
-        clean_baseline (float): Baseline for the clean model.
-        corrupted_baseline (float): Baseline for the corrupted model.
-        answer_token_indices (torch.Tensor): Indices of the tokens to compare.
-
-    Returns:
-        torch.Tensor: IOI metric.
-    """
-    return (get_logit_diff(logits, answer_token_indices) - corrupted_baseline) / (
-        clean_baseline - corrupted_baseline
-    )
-
-
-# =============== LOGIT LENS UTILS ===============
-
-
-def residual_stack_to_logit_diff(residual_stack, logit_diff_directions, prompts, cache):
-    scaled_residual_stack = cache.apply_ln_to_stack(
-        residual_stack, layer=-1, pos_slice=-1
-    )
-    return einsum(
-        "... batch d_model, batch d_model -> ...",
-        scaled_residual_stack,
-        logit_diff_directions,
-    ) / len(prompts)
-
-
 # =============== PATCHING & KNOCKOUT UTILS ===============
 def patch_pos_head_vector(
     orig_head_vector: TT["batch", "pos", "head_index", "d_head"],
@@ -216,120 +132,6 @@ def patch_head_vector(
     return orig_head_vector
 
 
-def path_patching(
-    model,
-    patch_tokens,
-    orig_tokens,
-    sender_heads,
-    receiver_hooks,
-    sender_positions=-1,
-    receiver_positions=-1,
-):
-    """Patches a model using the provided patch tokens.
-
-    Args:
-        model (nn.Module): Model to patch.
-        patch_tokens (Tokens): Patch tokens.
-        orig_tokens (Tokens): Original tokens.
-        sender_heads (List[Tuple[int, int]]): List of tuples of layer and head indices to patch.
-        receiver_hooks (List[Tuple[str, int]]): List of tuples of hook names and head indices to patch.
-        positions (int, optional): Positions to patch. Defaults to -1.
-
-    Returns:
-        nn.Module: Patched model.
-    """
-
-    def patch_positions(z, source_act, hook, positions=["end"], verbose=False):
-        for pos in positions:
-            z[torch.arange(orig_tokens.N), orig_tokens.word_idx[pos]] = source_act[
-                torch.arange(patch_tokens.N), patch_tokens.word_idx[pos]
-            ]
-        return z
-
-    # process arguments
-    sender_hooks = []
-    for layer, head_idx in sender_heads:
-        if head_idx is None:
-            sender_hooks.append((f"blocks.{layer}.hook_mlp_out", None))
-
-        else:
-            sender_hooks.append((f"blocks.{layer}.attn.hook_z", head_idx))
-
-    sender_hook_names = [x[0] for x in sender_hooks]
-    receiver_hook_names = [x[0] for x in receiver_hooks]
-    receiver_hook_heads = [x[1] for x in receiver_hooks]
-    # Forward pass A (in https://arxiv.org/pdf/2211.00593.pdf)
-    source_logits, sender_cache = model.run_with_cache(patch_tokens)
-
-    # Forward pass B
-    target_logits, target_cache = model.run_with_cache(orig_tokens)
-
-    # Forward pass C
-    # Cache the receiver hooks
-    # (adding these hooks first means we save values BEFORE they are overwritten)
-    receiver_cache = model.add_caching_hooks(lambda x: x in receiver_hook_names)
-
-    # "Freeze" intermediate heads to their orig_tokens values
-    # q, k, and v will get frozen, and then if it's a sender head, this will get undone
-    # z, attn_out, and the MLP will all be recomputed and added to the residual stream
-    # however, the effect of the change on the residual stream will be overwritten by the
-    # freezing for all non-receiver components
-    pass_c_hooks = []
-    for layer in range(model.cfg.n_layers):
-        for head_idx in range(model.cfg.n_heads):
-            for hook_template in [
-                "blocks.{}.attn.hook_q",
-                "blocks.{}.attn.hook_k",
-                "blocks.{}.attn.hook_v",
-            ]:
-                hook_name = hook_template.format(layer)
-                if (hook_name, head_idx) not in receiver_hooks:
-                    # print(f"Freezing {hook_name}")
-                    hook = partial(
-                        patch_head_vector, head_index=head_idx, patch_cache=target_cache
-                    )
-                    pass_c_hooks.append((hook_name, hook))
-                else:
-                    pass
-                    # print(f"Not freezing {hook_name}")
-
-    # These hooks will overwrite the freezing, for the sender heads
-    # We also carry out pass C
-    for hook_name, head_idx in sender_hooks:
-        assert not torch.allclose(sender_cache[hook_name], target_cache[hook_name]), (
-            hook_name,
-            head_idx,
-        )
-        hook = partial(
-            patch_pos_head_vector,
-            pos=sender_positions,
-            head_index=head_idx,
-            patch_cache=sender_cache,
-        )
-        pass_c_hooks.append((hook_name, hook))
-
-    receiver_logits = model.run_with_hooks(orig_tokens, fwd_hooks=pass_c_hooks)
-    # Add (or return) all the hooks needed for forward pass D
-    pass_d_hooks = []
-
-    for hook_name, head_idx in receiver_hooks:
-        # for pos in positions:
-        # if torch.allclose(
-        #     receiver_cache[hook_name][torch.arange(orig_tokens.N), orig_tokens.word_idx[pos]],
-        #     target_cache[hook_name][torch.arange(orig_tokens.N), orig_tokens.word_idx[pos]],
-        # ):
-        #     warnings.warn("Torch all close for {}".format(hook_name))
-        hook = partial(
-            patch_pos_head_vector,
-            pos=receiver_positions,
-            head_index=head_idx,
-            patch_cache=receiver_cache,
-        )
-        pass_d_hooks.append((hook_name, hook))
-
-    return pass_d_hooks
-
-
 def get_path_patching_results(
     model,
     clean_tokens,
@@ -371,6 +173,9 @@ def get_path_patching_results(
                 ],
                 positions=position,
             )
+
+            
+
             path_patched_logits = model.run_with_hooks(
                 clean_tokens, fwd_hooks=pass_d_hooks
             )
@@ -420,16 +225,49 @@ def get_knockout_perf_drop(model, heads_to_ablate, clean_tokens, metric):
 
     return ablated_logit_diff
 
+# =========================== COMPONENT SWAPPING ===========================
+def get_components_to_swap(
+    model_name: str,
+    revision: str,
+    components: ComponentDict,
+    cache_dir: str,
+) -> Dict[str, Tensor]:
+    """Gets the weights of the specified transformer components.
+
+    Args:
+        model_name (str): Model name in HuggingFace.
+        revision (str): Revision to load.
+        components (CircuitComponent): NamedTuple specifying the circuit components to collect.
+        cache_dir (str): Model cache directory.
+
+    Returns:
+        Dict[str, Tensor]: Dictionary of component parameters.
+    """
+
+def load_swapped_params(
+    model,
+    component_spec: ComponentDict,,
+    component_params: Dict[str, Tensor]
+):
+    """Loads the specified component parameters into the model.
+
+    Args:
+        model: Model to load parameters into.
+        component_spec (CircuitComponent): NamedTuple specifying the circuit components to load.
+        component_params (Dict[str, Tensor]): Dictionary of component parameters.
+    """
+
+
 
 # =========================== CIRCUITS OVER TIME ===========================
 def get_chronological_circuit_performance(
-    model_hf_name,
-    model_tl_name,
-    cache_dir,
-    ckpts,
-    clean_tokens,
-    corrupted_tokens,
-    answer_token_indices,
+    model_hf_name: str,
+    model_tl_name: str,
+    cache_dir: str,
+    ckpts: List[int],
+    clean_tokens: Tensor,
+    corrupted_tokens: Tensor,
+    dataset: IOIDataset,
 ):
     """Gets the performance of a model over time.
 
@@ -449,7 +287,17 @@ def get_chronological_circuit_performance(
     clean_ld_baselines = []
     corrupted_ld_baselines = []
 
-    metric = partial(get_logit_diff, answer_token_indices=answer_token_indices)
+    accuracy_vals = []
+    clean_accuracy_baselines = []
+    corrupted_accuracy_baselines = []
+
+    rank_0_rate_vals = []
+    clean_rank_0_rate_baselines = []
+    corrupted_rank_0_rate_baselines = []
+
+    get_logit_diff = partial(_logits_to_mean_logit_diff, ioi_dataset=dataset)
+    get_accuracy = partial(_logits_to_mean_accuracy, ioi_dataset=dataset)
+    get_rank_0_rate = partial(_logits_to_rank_0_rate, ioi_dataset=dataset)
 
     previous_model = None
 
@@ -467,27 +315,45 @@ def get_chronological_circuit_performance(
         clean_logits, clean_cache = model.run_with_cache(clean_tokens)
         corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_tokens)
 
-        clean_logit_diff = metric(clean_logits).item()
-        corrupted_logit_diff = metric(corrupted_logits).item()
-
+        clean_logit_diff = get_logit_diff(clean_logits)
+        corrupted_logit_diff = get_logit_diff(corrupted_logits)
         clean_ld_baselines.append(clean_logit_diff)
         corrupted_ld_baselines.append(corrupted_logit_diff)
         print(f"Logit diff: {clean_logit_diff}")
         logit_diff_vals.append(clean_logit_diff)
 
+        clean_accuracy = get_accuracy(clean_logits)
+        corrupted_accuracy = get_accuracy(corrupted_logits)
+        clean_accuracy_baselines.append(clean_accuracy)
+        corrupted_accuracy_baselines.append(corrupted_accuracy)
+        print(f"Accuracy: {clean_accuracy}")
+        accuracy_vals.append(clean_accuracy)
+
+        clean_rank_0_rate = get_rank_0_rate(clean_logits)
+        corrupted_rank_0_rate = get_rank_0_rate(corrupted_logits)
+        clean_rank_0_rate_baselines.append(clean_rank_0_rate)
+        corrupted_rank_0_rate_baselines.append(corrupted_rank_0_rate)
+        print(f"Rank 0 rate: {clean_rank_0_rate}")
+        rank_0_rate_vals.append(clean_rank_0_rate)
+
         previous_model = model
 
     return {
         "logit_diffs": torch.tensor(logit_diff_vals),
-        "clean_baselines": torch.tensor(clean_ld_baselines),
-        "corrupted_baselines": torch.tensor(corrupted_ld_baselines),
+        "ld_clean_baselines": torch.tensor(clean_ld_baselines),
+        "ld_corrupted_baselines": torch.tensor(corrupted_ld_baselines),
+        "accuracy_vals": torch.tensor(accuracy_vals),
+        "accuracy_clean_baselines": torch.tensor(clean_accuracy_baselines),
+        "accuracy_corrupted_baselines": torch.tensor(corrupted_accuracy_baselines),
+        "rank_0_rate_vals": torch.tensor(rank_0_rate_vals),
+        "rank_0_rate_clean_baselines": torch.tensor(clean_rank_0_rate_baselines),
+        "rank_0_rate_corrupted_baselines": torch.tensor(corrupted_rank_0_rate_baselines),
     }
 
 
 def get_chronological_circuit_data(
-    model_hf_name,
-    model_tl_name,
-    cache_dir,
+    model_name: str,
+    cache_dir: str,
     ckpts,
     circuit,
     clean_tokens,
@@ -528,7 +394,7 @@ def get_chronological_circuit_data(
             clear_gpu_memory(previous_model)
 
         print(f"Loading model for step {ckpt}...")
-        model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
+        model = load_model(model_name, f"step{ckpt}", cache_dir)
 
         # Get metric values (relative to final performance)
         print("Getting metric values...")
@@ -563,6 +429,7 @@ def get_chronological_circuit_data(
         for key in circuit.keys():
             # Get path patching results
             print(f"Getting path patching metrics for {key}...")
+            # TODO: Replace with Callum's patch patching code
             path_patching_results = get_path_patching_results(
                 model,
                 clean_tokens,
@@ -592,3 +459,5 @@ def get_chronological_circuit_data(
         "circuit_vals": circuit_vals,
         "knockout_drops": knockout_drops,
     }
+
+
