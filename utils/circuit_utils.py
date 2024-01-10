@@ -226,36 +226,36 @@ def get_knockout_perf_drop(model, heads_to_ablate, clean_tokens, metric):
     return ablated_logit_diff
 
 # =========================== COMPONENT SWAPPING ===========================
-def get_components_to_swap(
-    model_name: str,
-    revision: str,
-    components: ComponentDict,
-    cache_dir: str,
-) -> Dict[str, Tensor]:
-    """Gets the weights of the specified transformer components.
+# def get_components_to_swap(
+#     model_name: str,
+#     revision: str,
+#     components: ComponentDict,
+#     cache_dir: str,
+# ) -> Dict[str, Tensor]:
+#     """Gets the weights of the specified transformer components.
 
-    Args:
-        model_name (str): Model name in HuggingFace.
-        revision (str): Revision to load.
-        components (CircuitComponent): NamedTuple specifying the circuit components to collect.
-        cache_dir (str): Model cache directory.
+#     Args:
+#         model_name (str): Model name in HuggingFace.
+#         revision (str): Revision to load.
+#         components (CircuitComponent): NamedTuple specifying the circuit components to collect.
+#         cache_dir (str): Model cache directory.
 
-    Returns:
-        Dict[str, Tensor]: Dictionary of component parameters.
-    """
+#     Returns:
+#         Dict[str, Tensor]: Dictionary of component parameters.
+#     """
 
-def load_swapped_params(
-    model,
-    component_spec: ComponentDict,,
-    component_params: Dict[str, Tensor]
-):
-    """Loads the specified component parameters into the model.
+# def load_swapped_params(
+#     model,
+#     component_spec: ComponentDict,,
+#     component_params: Dict[str, Tensor]
+# ):
+#     """Loads the specified component parameters into the model.
 
-    Args:
-        model: Model to load parameters into.
-        component_spec (CircuitComponent): NamedTuple specifying the circuit components to load.
-        component_params (Dict[str, Tensor]): Dictionary of component parameters.
-    """
+#     Args:
+#         model: Model to load parameters into.
+#         component_spec (CircuitComponent): NamedTuple specifying the circuit components to load.
+#         component_params (Dict[str, Tensor]): Dictionary of component parameters.
+#     """
 
 
 
