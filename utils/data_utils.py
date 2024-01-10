@@ -68,7 +68,32 @@ def read_data(file_path):
     return prompts, answers
 
 
+def set_up_data(model, prompts, answers):
+    """Sets up data for a given model, prompts, and answers.
 
+    Args:
+        model (HookedTransformer): Model to set up data for.
+        prompts (List[str]): List of prompts to use.
+        answers (List[List[str]]): List of answers to use.
+
+    Returns:
+        Tuple[List[str], List[str], torch.Tensor]: Clean tokens, corrupted tokens, and answer token indices.
+    """
+    clean_tokens = model.to_tokens(prompts)
+    # Swap each adjacent pair of tokens
+    corrupted_tokens = clean_tokens[
+        [(i + 1 if i % 2 == 0 else i - 1) for i in range(len(clean_tokens))]
+    ]
+
+    answer_token_indices = torch.tensor(
+        [
+            [model.to_single_token(answers[i][j]) for j in range(2)]
+            for i in range(len(answers))
+        ],
+        device=model.cfg.device,
+    )
+
+    return clean_tokens, corrupted_tokens, answer_token_indices
 
 
 def generate_data_and_caches(model: HookedTransformer, N: int, verbose: bool = False, seed: int = 42):
