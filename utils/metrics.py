@@ -66,3 +66,41 @@ def _ioi_metric_noising(
         '''
         patched_logit_diff = _logits_to_mean_logit_diff(logits, ioi_dataset)
         return ((patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)).item()
+
+def get_logit_diff(logits, answer_token_indices, per_prompt=False):
+    """Gets the difference between the logits of the provided tokens (e.g., the correct and incorrect tokens in IOI)
+
+    Args:
+        logits (torch.Tensor): Logits to use.
+        answer_token_indices (torch.Tensor): Indices of the tokens to compare.
+
+    Returns:
+        torch.Tensor: Difference between the logits of the provided tokens.
+    """
+    if len(logits.shape) == 3:
+        # Get final logits only
+        logits = logits[:, -1, :]
+    correct_logits = logits.gather(1, answer_token_indices[:, 0].unsqueeze(1))
+    incorrect_logits = logits.gather(1, answer_token_indices[:, 1].unsqueeze(1))
+    if per_prompt:
+        return (correct_logits - incorrect_logits).squeeze()
+    else:
+        return (correct_logits - incorrect_logits).mean()
+
+
+def ioi_metric(logits, clean_baseline, corrupted_baseline, answer_token_indices):
+    """Computes the IOI metric for a given set of logits, baselines, and answer token indices. Metric is relative to the
+    provided baselines.
+
+    Args:
+        logits (torch.Tensor): Logits to use.
+        clean_baseline (float): Baseline for the clean model.
+        corrupted_baseline (float): Baseline for the corrupted model.
+        answer_token_indices (torch.Tensor): Indices of the tokens to compare.
+
+    Returns:
+        torch.Tensor: IOI metric.
+    """
+    return (get_logit_diff(logits, answer_token_indices) - corrupted_baseline) / (
+        clean_baseline - corrupted_baseline
+    )

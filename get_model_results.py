@@ -86,35 +86,35 @@ clear_gpu_memory(model)
 # get values over time
 # ckpts = [round((2**i) / 1000) * 1000 if 2**i > 1000 else 2**i for i in range(18)]
 ckpts = [142000, 143000]
-# results_dict = cu.get_chronological_circuit_data(
-#     model_full_name,
-#     cache_dir,
-#     ckpts,
-#     circuit=circuit,
-#     clean_tokens=ioi_dataset.toks,
-#     corrupted_tokens=abc_dataset.toks
-# )
+results_dict = cu.get_chronological_circuit_data(
+    model_full_name,
+    cache_dir,
+    ckpts,
+    circuit=circuit,
+    clean_tokens=ioi_dataset.toks,
+    corrupted_tokens=abc_dataset.toks
+)
 
 # save results
 os.makedirs(f"results/{model_name}-no-dropout", exist_ok=True)
-# torch.save(
-#     results_dict["logit_diffs"], f"results/{model_name}-no-dropout/overall_perf.pt"
-# )
-# torch.save(
-#     results_dict["clean_baselines"],
-#     f"results/{model_name}-no-dropout/clean_baselines.pt",
-# )
-# torch.save(
-#     results_dict["corrupted_baselines"],
-#     f"results/{model_name}-no-dropout/corrupted_baselines.pt",
-# )
-# torch.save(
-#     results_dict["attn_head_vals"], f"results/{model_name}-no-dropout/attn_head_perf.pt"
-# )
-# torch.save(
-#     results_dict["value_patch_vals"], f"results/{model_name}-no-dropout/value_perf.pt"
-# )
-# with open(f"results/{model_name}-no-dropout/circuit_vals.pkl", "wb") as f:
-#     pickle.dump(results_dict["circuit_vals"], f)
-# with open(f"results/{model_name}-no-dropout/knockout_drops.pkl", "wb") as f:
-#     pickle.dump(results_dict["knockout_drops"], f)
+torch.save(
+    results_dict["logit_diffs"], f"results/{model_name}-no-dropout/overall_perf.pt"
+)
+torch.save(
+    results_dict["clean_baselines"],
+    f"results/{model_name}-no-dropout/clean_baselines.pt",
+)
+torch.save(
+    results_dict["corrupted_baselines"],
+    f"results/{model_name}-no-dropout/corrupted_baselines.pt",
+)
+torch.save(
+    results_dict["attn_head_vals"], f"results/{model_name}-no-dropout/attn_head_perf.pt"
+)
+torch.save(
+    results_dict["value_patch_vals"], f"results/{model_name}-no-dropout/value_perf.pt"
+)
+with open(f"results/{model_name}-no-dropout/circuit_vals.pkl", "wb") as f:
+    pickle.dump(results_dict["circuit_vals"], f)
+with open(f"results/{model_name}-no-dropout/knockout_drops.pkl", "wb") as f:
+    pickle.dump(results_dict["knockout_drops"], f)
