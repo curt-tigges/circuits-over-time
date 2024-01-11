@@ -4,7 +4,7 @@ from collections import namedtuple
 
 import torch
 from torch import Tensor
-from typing import List, Optional, Union, Dict
+from typing import List, Optional, Union, Dict, Tuple
 from path_patching_cm.ioi_dataset import IOIDataset
 from torchtyping import TensorType as TT
 
@@ -460,4 +460,139 @@ def get_chronological_circuit_data(
         "knockout_drops": knockout_drops,
     }
 
+
+# =========================== COMPONENT SWAPPING ===========================
+# Used for swapping components (mostly, attention heads) between different model checkpoints.
+# Only works for Pythia models, and should be used for models with the same architecture.
+
+class ComponentDict:
+    """A dictionary to manage the components of a transformer model for parameter swapping.
+
+    This class is used to specify which components (like attention heads, LayerNorm, MLP) of 
+    a transformer model should be swapped. It handles the mapping of layers to specific heads 
+    and the inclusion of other components like LayerNorm and MLP.
+
+    Attributes:
+        components (dict): A dictionary where keys are component names and values are 
+                           either slice indices for attention heads or None for other components.
+
+    Args:
+        layer_heads (list of tuple): Each tuple contains a layer index and a head index (or indices) within that layer.
+        include_ln (bool): If True, includes LayerNorm components for swapping.
+        include_mlps (bool): If True, includes MLP components for swapping.
+    """
+    def __init__(
+            self, 
+            layer_heads: List[Tuple[int, int]], # Should be [(layer, head), ...)]
+            include_ln: bool = False, # Probably shouldn't be used unless most of a layer is replaced
+            include_mlps: bool = False 
+        ):
+        self.components = {}
+        hidden_size = 768  # Assuming a hidden size of 768
+        num_heads = 12     # Assuming 12 heads per layer
+        head_size = hidden_size // num_heads
+
+        # Create a dictionary to store head indices for each layer
+        layer_to_heads = {}
+        for layer, head in layer_heads:
+            if layer not in layer_to_heads:
+                layer_to_heads[layer] = []
+            layer_to_heads[layer].append(head)
+
+        for layer, heads in layer_to_heads.items():
+            for head in heads:
+                # Calculate start and end indices for each specified head
+                start_idx = head * head_size
+                end_idx = start_idx + head_size
+
+                # Store the slice information for each head's weights
+                component_weight_key = f'gpt_neox.layers.{layer}.attention.query_key_value.weight'
+                if component_weight_key not in self.components:
+                    self.components[component_weight_key] = []
+                self.components[component_weight_key].append((start_idx, end_idx))
+
+                # Store the slice information for each head's biases
+                component_bias_key = f'gpt_neox.layers.{layer}.attention.query_key_value.bias'
+                if component_bias_key not in self.components:
+                    self.components[component_bias_key] = []
+                self.components[component_bias_key].append((start_idx, end_idx))
+
+            # Add LayerNorm components if specified
+            if include_ln:
+                self.components[f'gpt_neox.layers.{layer}.input_layernorm'] = None
+                self.components[f'gpt_neox.layers.{layer}.post_attention_layernorm'] = None
+
+            # Add MLP components if specified
+            if include_mlps:
+                self.components[f'gpt_neox.layers.{layer}.mlp'] = None
+
+    def get_component_specs(self):
+        """Retrieves the component specifications.
+
+        Returns:
+            dict: The dictionary containing component specifications.
+        """
+        return self.components
+
+
+def get_components_to_swap(source_model, component_dict, cache_dir):
+    """Extracts the specified components from a source transformer model.
+
+    This function extracts the components (like specific attention head weights and biases, 
+    LayerNorm, and MLP components) specified in the ComponentDict from the source model.
+
+    Args:
+        source_model (transformers.PreTrainedModel): The model from which components are to be extracted.
+        component_dict (ComponentDict): The ComponentDict specifying which components to extract.
+        cache_dir (str): Directory for caching the model.
+
+    Returns:
+        dict: A dictionary with component names as keys and tuples (extracted parameters, slice info) as values.
+    """
+    component_params = {}
+    for name, param in source_model.named_parameters():
+        comp_specs = component_dict.get_component_specs().get(name)
+        if comp_specs is not None:
+            # Handle multiple slices for both weights and biases
+            if "bias" in name:
+                # Bias is a 1D tensor
+                slices = [param.detach().clone()[start:end] for start, end in comp_specs]
+            else:
+                # Weights are a 2D tensor
+                slices = [param.detach().clone()[:, start:end] for start, end in comp_specs]
+            concatenated_slices = torch.cat(slices, dim=-1)  # Concatenate on the last dimension
+            component_params[name] = (concatenated_slices, comp_specs)
+        elif comp_specs is None and name in component_dict.get_component_specs():
+            # Handle non-sliced components
+            component_params[name] = param.detach().clone()
+    return component_params
+
+
+def load_swapped_params(target_model, component_params):
+    """Loads the specified components into a target transformer model.
+
+    This function takes the components extracted from a source model and loads them into
+    the corresponding components of the target model. It handles both sliced components 
+    (like specific attention heads) and whole components (like LayerNorm and MLP).
+
+    Args:
+        target_model (transformers.PreTrainedModel): The model into which the components are to be loaded.
+        component_params (dict): A dictionary with component names as keys and tuples (parameters to load, slice info) as values.
+
+    Raises:
+        ValueError: If there's a mismatch in the shape of the parameters being loaded.
+    """
+    for name, param in target_model.named_parameters():
+        if name in component_params:
+            new_param_data, slice_info = component_params[name]
+            if slice_info is not None:
+                head_size = new_param_data.shape[-1] // len(slice_info)  # Adjust head size calculation
+                for i, (start_idx, end_idx) in enumerate(slice_info):
+                    if param.data.ndim == 2:
+                        param.data[:, start_idx:end_idx] = new_param_data[:, i*head_size:(i+1)*head_size]
+                    elif param.data.ndim == 1:
+                        param.data[start_idx:end_idx] = new_param_data[i*head_size:(i+1)*head_size]
+            elif slice_info is None:
+                # For non-sliced components, replace the entire parameter
+                param.data = new_param_data
 
