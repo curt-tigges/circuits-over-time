@@ -37,19 +37,18 @@ def make_shapes_uniform(batch_tokens, max_seq_len):
     '''
     batch_size, seq_len = batch_tokens.shape
     if seq_len < max_seq_len:
-        #print(f"Padding batch of shape {batch_tokens.shape} to {max_seq_len}...")
+        print(f"Padding batch of shape {batch_tokens.shape} to {max_seq_len}...")
         batch_tokens = torch.cat([batch_tokens, torch.zeros((batch_size, max_seq_len - seq_len), dtype=torch.long).to(device)], dim=1)
 
     return batch_tokens
 
 
 def process_in_batches(model, dataset, batch_size):
-    dataset_len = dataset.shape[0]
-    num_batches = dataset_len // batch_size + (1 if dataset_len % batch_size > 0 else 0)
+    num_batches = len(dataset) // batch_size + (1 if len(dataset) % batch_size > 0 else 0)
     results = []
     for i in range(num_batches):
         batch = dataset[i * batch_size:(i + 1) * batch_size]
-        resized_batch = make_shapes_uniform(batch, max_seq_len=21)
+        resized_batch = make_shapes_uniform(batch.toks, max_seq_len=21)
         batch_logits, _ = model.run_with_cache(resized_batch)
         results.append(batch_logits)
     return results
@@ -632,102 +631,102 @@ def load_swapped_params(target_model, component_params):
                 param.data = new_param_data
 
 
-# def run_chronological_swapping_experiment(
-#     model_hf_name: str,
-#     model_tl_name: str,
-#     cache_dir: str,
-#     ckpts: List[int],
-#     inbound_swap_intervals: List[int],
-#     clean_tokens: Tensor,
-#     corrupted_tokens: Tensor,
-#     dataset: IOIDataset,
-#     component_dict: ComponentDict,
-#     include_ln: bool = False,
-#     include_mlps: bool = False,
-# ):
-#     """Runs a chronological swapping experiment for a given model and components.
+def run_chronological_swapping_experiment(
+    model_hf_name: str,
+    model_tl_name: str,
+    cache_dir: str,
+    ckpts: List[int],
+    inbound_swap_intervals: List[int],
+    clean_tokens: Tensor,
+    corrupted_tokens: Tensor,
+    dataset: IOIDataset,
+    component_dict: ComponentDict,
+    include_ln: bool = False,
+    include_mlps: bool = False,
+):
+    """Runs a chronological swapping experiment for a given model and components.
 
-#     This function loads a target model at each checkpoint. For each inbound swap interval,
-#     it loads a source model from an alternate checkpoint and swaps the specified components
-#     from the source model into the target model. It then evaluates the performance of the
-#     target model on clean and corrupted tokens, including logit diff, accuracy, and rank 0 rate.
+    This function loads a target model at each checkpoint. For each inbound swap interval,
+    it loads a source model from an alternate checkpoint and swaps the specified components
+    from the source model into the target model. It then evaluates the performance of the
+    target model on clean and corrupted tokens, including logit diff, accuracy, and rank 0 rate.
 
-#     Args:
-#         model_hf_name (str): Model name in HuggingFace.
-#         model_tl_name (str): Model name in TorchLayers.
-#         cache_dir (str): Cache directory.
-#         ckpts (List[int]): Checkpoints to evaluate.
-#         inbound_swap_intervals (List[int]): Intervals at which to swap components from source models.
-#         clean_tokens (Tensor): Clean tokens.
-#         corrupted_tokens (Tensor): Corrupted tokens.
-#         dataset (IOIDataset): IOIDataset object.
-#         component_dict (ComponentDict): The ComponentDict specifying which components to extract.
-#         include_ln (bool): If True, includes LayerNorm components for swapping.
-#         include_mlps (bool): If True, includes MLP components for swapping.
+    Args:
+        model_hf_name (str): Model name in HuggingFace.
+        model_tl_name (str): Model name in TorchLayers.
+        cache_dir (str): Cache directory.
+        ckpts (List[int]): Checkpoints to evaluate.
+        inbound_swap_intervals (List[int]): Intervals at which to swap components from source models.
+        clean_tokens (Tensor): Clean tokens.
+        corrupted_tokens (Tensor): Corrupted tokens.
+        dataset (IOIDataset): IOIDataset object.
+        component_dict (ComponentDict): The ComponentDict specifying which components to extract.
+        include_ln (bool): If True, includes LayerNorm components for swapping.
+        include_mlps (bool): If True, includes MLP components for swapping.
 
-#     Returns:
-#         dict: Dictionary of performance over time.
-#     """
-#     logit_diff_vals = []
-#     clean_ld_baselines = []
-#     corrupted_ld_baselines = []
+    Returns:
+        dict: Dictionary of performance over time.
+    """
+    logit_diff_vals = []
+    clean_ld_baselines = []
+    corrupted_ld_baselines = []
 
-#     accuracy_vals = []
-#     clean_accuracy_baselines = []
-#     corrupted_accuracy_baselines = []
+    accuracy_vals = []
+    clean_accuracy_baselines = []
+    corrupted_accuracy_baselines = []
 
-#     rank_0_rate_vals = []
-#     clean_rank_0_rate_baselines = []
-#     corrupted_rank_0_rate_baselines = []
+    rank_0_rate_vals = []
+    clean_rank_0_rate_baselines = []
+    corrupted_rank_0_rate_baselines = []
 
-#     get_logit_diff = partial(_logits_to_mean_logit_diff, ioi_dataset=dataset)
-#     get_accuracy = partial(_logits_to_mean_accuracy, ioi_dataset=dataset)
-#     get_rank_0_rate = partial(_logits_to_rank_0_rate, ioi_dataset=dataset)
+    get_logit_diff = partial(_logits_to_mean_logit_diff, ioi_dataset=dataset)
+    get_accuracy = partial(_logits_to_mean_accuracy, ioi_dataset=dataset)
+    get_rank_0_rate = partial(_logits_to_rank_0_rate, ioi_dataset=dataset)
 
-#     previous_model = None
+    previous_model = None
 
-#     for ckpt in ckpts:
+    for ckpt in ckpts:
 
-#         # Get model
-#         if previous_model is not None:
-#             clear_gpu_memory(previous_model)
+        # Get model
+        if previous_model is not None:
+            clear_gpu_memory(previous_model)
 
-#         print(f"Loading model for step {ckpt}...")
-#         model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
+        print(f"Loading model for step {ckpt}...")
+        model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
 
-#         # Get metric values
-#         print("Getting metric values...")
-#         clean_logits, clean_cache = model.run_with_cache(clean_tokens)
-#         corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_tokens)
+        # Get metric values
+        print("Getting metric values...")
+        clean_logits, clean_cache = model.run_with_cache(clean_tokens)
+        corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_tokens)
 
-#         clean_logit_diff = get_logit_diff(clean_logits)
-#         corrupted_logit_diff = get_logit_diff(corrupted_logits)
-#         clean_ld_baselines.append(clean_logit_diff)
-#         corrupted_ld_baselines.append(corrupted_logit_diff)
-#         print(f"Logit diff: {clean_logit_diff}")
-#         logit_diff_vals.append(clean_logit_diff)
+        clean_logit_diff = get_logit_diff(clean_logits)
+        corrupted_logit_diff = get_logit_diff(corrupted_logits)
+        clean_ld_baselines.append(clean_logit_diff)
+        corrupted_ld_baselines.append(corrupted_logit_diff)
+        print(f"Logit diff: {clean_logit_diff}")
+        logit_diff_vals.append(clean_logit_diff)
 
-#         clean_accuracy = get_accuracy(clean_logits)
-#         corrupted_accuracy = get_accuracy(corrupted_logits)
-#         clean_accuracy_baselines.append(clean_accuracy)
-#         corrupted_accuracy_baselines.append(corrupted_accuracy)
-#         print(f"Accuracy: {clean_accuracy}")
-#         accuracy_vals.append(clean_accuracy)
+        clean_accuracy = get_accuracy(clean_logits)
+        corrupted_accuracy = get_accuracy(corrupted_logits)
+        clean_accuracy_baselines.append(clean_accuracy)
+        corrupted_accuracy_baselines.append(corrupted_accuracy)
+        print(f"Accuracy: {clean_accuracy}")
+        accuracy_vals.append(clean_accuracy)
 
-#         clean_rank_0_rate = get_rank_0_rate(clean_logits)
-#         corrupted_rank_0_rate = get_rank_0_rate(corrupted_logits)
-#         clean_rank_0_rate_baselines.append(clean_rank_0_rate)
-#         corrupted_rank_0_rate_baselines.append(corrupted_rank_0_rate)
-#         print(f"Rank 0 rate: {clean_rank_0_rate}")
-#         rank_0_rate_vals.append(clean_rank_0_rate)
+        clean_rank_0_rate = get_rank_0_rate(clean_logits)
+        corrupted_rank_0_rate = get_rank_0_rate(corrupted_logits)
+        clean_rank_0_rate_baselines.append(clean_rank_0_rate)
+        corrupted_rank_0_rate_baselines.append(corrupted_rank_0_rate)
+        print(f"Rank 0 rate: {clean_rank_0_rate}")
+        rank_0_rate_vals.append(clean_rank_0_rate)
 
-#         # Swap components from source models
-#         for swap_interval in inbound_swap_intervals:
-#             if ckpt >= swap_interval
-#                 source_ckpt = ckpt - swap_interval
-#                 print(f"Loading source model for step {source_ckpt}...")
-#                 source_model = load_model(model_hf_name, model_tl_name, f"step{source_ckpt}", cache_dir)
+        # Swap components from source models
+        for swap_interval in inbound_swap_intervals:
+            if ckpt >= swap_interval
+                source_ckpt = ckpt - swap_interval
+                print(f"Loading source model for step {source_ckpt}...")
+                source_model = load_model(model_hf_name, model_tl_name, f"step{source_ckpt}", cache_dir)
 
-#                 print(f"Swapping components from step {source_ckpt} into step {ckpt}...")
-#                 component_params = get_components_to_swap(source_model, component_dict, cache_dir)
-#                 load_swapped_params(model, component_params)
+                print(f"Swapping components from step {source_ckpt} into step {ckpt}...")
+                component_params = get_components_to_swap(source_model, component_dict, cache_dir)
+                load_swapped_params(model, component_params)
