@@ -16,12 +16,9 @@ import utils.circuit_utils as cu
 
 # Settings
 if torch.cuda.is_available():
-    device = int(os.environ.get("LOCAL_RANK", 0))
+    device = "cuda"
 else:
     device = "cpu"
-
-torch.set_grad_enabled(False)
-DO_SLOW_RUNS = True
 
 
 def get_args():
@@ -55,6 +52,9 @@ def read_data(file_path):
 
 
 def main(args):
+
+    torch.set_grad_enabled(False)
+
     config = read_config(args.config)
 
     print(config)
