@@ -12,7 +12,7 @@ from utils.model_utils import load_model, clear_gpu_memory
 from utils.data_utils import generate_data_and_caches
 from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate
 
-import circuit_utils as cu
+import utils.circuit_utils as cu
 
 # Settings
 if torch.cuda.is_available():
@@ -66,6 +66,7 @@ def main(args):
     model_tl_full_name = f"EleutherAI/{model_tl_name}"
 
     cache_dir = config["cache_dir"]
+    batch_size = config["batch_size"]
 
     # load model
     model = load_model(
@@ -74,12 +75,12 @@ def main(args):
 
     # set up data
     N = 70
-    ioi_dataset, abc_dataset, ioi_cache, abc_cache, ioi_metric_noising = generate_data_and_caches(model, N, verbose=True)
+    ioi_dataset, abc_dataset, _, _, _ = generate_data_and_caches(model, N, verbose=True)
 
 
     # get baselines
-    clean_logits, clean_cache = model.run_with_cache(ioi_dataset.toks)
-    corrupted_logits, corrupted_cache = model.run_with_cache(abc_dataset.toks)
+    clean_logits = cu.process_in_batches(ioi_dataset.toks)
+    corrupted_logits = cu.process_in_batches(abc_dataset.toks)
 
     clean_logit_diff = _logits_to_mean_logit_diff(clean_logits, ioi_dataset)
     print(f"Clean logit diff: {clean_logit_diff:.4f}")
@@ -115,7 +116,8 @@ def main(args):
         ckpts,
         clean_tokens=ioi_dataset.toks,
         corrupted_tokens=abc_dataset.toks,
-        dataset=ioi_dataset
+        dataset=ioi_dataset,
+        batch_size=batch_size,
     )
 
     # save results
