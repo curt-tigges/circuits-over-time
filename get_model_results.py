@@ -1,13 +1,27 @@
 import os
+import pickle
+import torch
+import argparse
 from collections import namedtuple
 
-import torch
-import pickle
+import circuit_utils as cu
+from utils.model_utils import load_model, clear_gpu_memory
+from utils.data_utils import generate_data_and_caches
+from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate
 
 from torchtyping import TensorType as TT
 
-from model_utils import load_model, clear_gpu_memory
-import circuit_utils as cu
+# Set up argument parser
+parser = argparse.ArgumentParser(description='Run model with specified settings')
+parser.add_argument('model_name', type=str, help='Name of the model to load')
+parser.add_argument('circuit_file', type=str, help='Filename for the circuit dictionary')
+
+# Parse arguments
+args = parser.parse_args()
+
+# Use the parsed model name and circuit file
+model_name = args.model_name
+circuit_file = args.circuit_file
 
 # Settings
 if torch.cuda.is_available():
@@ -18,89 +32,54 @@ else:
 torch.set_grad_enabled(False)
 DO_SLOW_RUNS = True
 
-# define the model names
-model_name = "pythia-1.4b"
-model_tl_name = "pythia-1.3b"
-
 model_full_name = f"EleutherAI/{model_name}"
-model_tl_full_name = f"EleutherAI/{model_tl_name}"
 
-cache_dir = "/fsx/home-curt/saved_models"
+cache_dir = "model_cache"
 # cache_dir = "/media/curttigges/project-files/projects/circuits"
 
 # load model
 model = load_model(
-    model_full_name, model_tl_full_name, "step143000", cache_dir=cache_dir
+    model_full_name, "step143000", cache_dir=cache_dir
 )
 
-# define circuit
 CircuitComponent = namedtuple(
     "CircuitComponent", ["heads", "position", "receiver_type"]
 )
 
-circuit = {
-    "name-movers": CircuitComponent(
-        [(12, 15), (13, 1), (13, 6), (15, 15), (16, 13), (17, 7)], -1, "hook_q"
-    ),
-    "s2-inhibition": CircuitComponent([(10, 7)], 10, "hook_v"),
-    # "duplicate-name": CircuitComponent([(7, 15), (9, 1)], 10, 'head_v'),
-    # "induction": CircuitComponent([], 10, 'head_v')
-}
+# Load the circuit dictionary from the specified file
+circuit_root = "results/circuits/"
+with open(circuit_root + circuit_file, 'rb') as f:
+    circuit = pickle.load(f)
 
 # set up data
-prompts = [
-    "When John and Mary went to the shops, John gave the bag to",
-    "When John and Mary went to the shops, Mary gave the bag to",
-    "When Tom and James went to the park, James gave the ball to",
-    "When Tom and James went to the park, Tom gave the ball to",
-    "When Dan and Sid went to the shops, Sid gave an apple to",
-    "When Dan and Sid went to the shops, Dan gave an apple to",
-    "After Martin and Amy went to the park, Amy gave a drink to",
-    "After Martin and Amy went to the park, Martin gave a drink to",
-]
-
-answers = [
-    (" Mary", " John"),
-    (" John", " Mary"),
-    (" Tom", " James"),
-    (" James", " Tom"),
-    (" Dan", " Sid"),
-    (" Sid", " Dan"),
-    (" Martin", " Amy"),
-    (" Amy", " Martin"),
-]
-
-
-clean_tokens, corrupted_tokens, answer_token_indices = cu.set_up_data(
-    model, prompts, answers
-)
+N = 70
+ioi_dataset, abc_dataset, ioi_cache, abc_cache, ioi_metric_noising = generate_data_and_caches(model, N, verbose=True)
 
 # get baselines
-clean_logits, clean_cache = model.run_with_cache(clean_tokens)
-corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_tokens)
+clean_logits, clean_cache = model.run_with_cache(ioi_dataset.toks)
+corrupted_logits, corrupted_cache = model.run_with_cache(abc_dataset.toks)
 
-clean_logit_diff = cu.get_logit_diff(clean_logits, answer_token_indices).item()
+clean_logit_diff = _logits_to_mean_logit_diff(clean_logits, ioi_dataset)
 print(f"Clean logit diff: {clean_logit_diff:.4f}")
 
-corrupted_logit_diff = cu.get_logit_diff(corrupted_logits, answer_token_indices).item()
+corrupted_logit_diff = _logits_to_mean_logit_diff(corrupted_logits, ioi_dataset)
 print(f"Corrupted logit diff: {corrupted_logit_diff:.4f}")
+
+clean_logit_accuracy = _logits_to_mean_accuracy(clean_logits, ioi_dataset).item()
+print(f"Clean logit accuracy: {clean_logit_accuracy:.4f}")
+
+corrupted_logit_accuracy = _logits_to_mean_accuracy(corrupted_logits, ioi_dataset).item()
+print(f"Corrupted logit accuracy: {corrupted_logit_accuracy:.4f}")
+
+clean_logit_rank_0_rate = _logits_to_rank_0_rate(clean_logits, ioi_dataset)
+print(f"Clean logit rank 0 rate: {clean_logit_rank_0_rate:.4f}")
+
+corrupted_logit_rank_0_rate = _logits_to_rank_0_rate(corrupted_logits, ioi_dataset)
+print(f"Corrupted logit rank 0 rate: {corrupted_logit_rank_0_rate:.4f}")
 
 CLEAN_BASELINE = clean_logit_diff
 CORRUPTED_BASELINE = corrupted_logit_diff
 
-clean_baseline_ioi = cu.ioi_metric(
-    clean_logits, CLEAN_BASELINE, CORRUPTED_BASELINE, answer_token_indices
-)
-corrupted_baseline_ioi = cu.ioi_metric(
-    corrupted_logits, CLEAN_BASELINE, CORRUPTED_BASELINE, answer_token_indices
-)
-
-print(
-    f"Clean Baseline is 1: {cu.ioi_metric(clean_logits, CLEAN_BASELINE, CORRUPTED_BASELINE, answer_token_indices).item():.4f}"
-)
-print(
-    f"Corrupted Baseline is 0: {cu.ioi_metric(corrupted_logits, CLEAN_BASELINE, CORRUPTED_BASELINE, answer_token_indices).item():.4f}"
-)
 
 clear_gpu_memory(model)
 
@@ -109,13 +88,11 @@ clear_gpu_memory(model)
 ckpts = [142000, 143000]
 results_dict = cu.get_chronological_circuit_data(
     model_full_name,
-    model_tl_full_name,
     cache_dir,
     ckpts,
     circuit=circuit,
-    clean_tokens=clean_tokens,
-    corrupted_tokens=corrupted_tokens,
-    answer_token_indices=answer_token_indices,
+    clean_tokens=ioi_dataset.toks,
+    corrupted_tokens=abc_dataset.toks
 )
 
 # save results

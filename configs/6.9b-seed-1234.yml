@@ -1,0 +1,6 @@
+{
+  "model_name": "pythia-6.9b",
+  "model_tl_name": "pythia-6.9b",
+  "cache_dir": "model_cache",
+  "checkpoint_schedule": "exp_plus_detail",
+}
