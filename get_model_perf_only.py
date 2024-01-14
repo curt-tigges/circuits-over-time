@@ -8,17 +8,17 @@ import yaml
 
 from torchtyping import TensorType as TT
 
-from model_utils import load_model, clear_gpu_memory
-import circuit_utils as cu
+from utils.model_utils import load_model, clear_gpu_memory
+from utils.data_utils import generate_data_and_caches
+from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate
+
+import utils.circuit_utils as cu
 
 # Settings
 if torch.cuda.is_available():
-    device = int(os.environ.get("LOCAL_RANK", 0))
+    device = "cuda"
 else:
     device = "cpu"
-
-torch.set_grad_enabled(False)
-DO_SLOW_RUNS = True
 
 
 def get_args():
@@ -52,6 +52,9 @@ def read_data(file_path):
 
 
 def main(args):
+
+    torch.set_grad_enabled(False)
+
     config = read_config(args.config)
 
     print(config)
@@ -63,6 +66,7 @@ def main(args):
     model_tl_full_name = f"EleutherAI/{model_tl_name}"
 
     cache_dir = config["cache_dir"]
+    batch_size = config["batch_size"]
 
     # load model
     model = load_model(
@@ -70,40 +74,19 @@ def main(args):
     )
 
     # set up data
-    prompts, answers = read_data(config["data_path"])
+    N = 70
+    ioi_dataset, abc_dataset, _, _, _ = generate_data_and_caches(model, N, verbose=True)
 
-    clean_tokens, corrupted_tokens, answer_token_indices = cu.set_up_data(
-        model, prompts, answers
-    )
 
     # get baselines
-    clean_logits, clean_cache = model.run_with_cache(clean_tokens)
-    corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_tokens)
+    clean_logits = cu.run_with_batches(model, ioi_dataset.toks, batch_size)
+    corrupted_logits = cu.run_with_batches(model, abc_dataset.toks, batch_size)
 
-    clean_logit_diff = cu.get_logit_diff(clean_logits, answer_token_indices).item()
+    clean_logit_diff = _logits_to_mean_logit_diff(clean_logits, ioi_dataset)
     print(f"Clean logit diff: {clean_logit_diff:.4f}")
 
-    corrupted_logit_diff = cu.get_logit_diff(
-        corrupted_logits, answer_token_indices
-    ).item()
+    corrupted_logit_diff = _logits_to_mean_logit_diff(corrupted_logits, ioi_dataset)
     print(f"Corrupted logit diff: {corrupted_logit_diff:.4f}")
-
-    CLEAN_BASELINE = clean_logit_diff
-    CORRUPTED_BASELINE = corrupted_logit_diff
-
-    clean_baseline_ioi = cu.ioi_metric(
-        clean_logits, CLEAN_BASELINE, CORRUPTED_BASELINE, answer_token_indices
-    )
-    corrupted_baseline_ioi = cu.ioi_metric(
-        corrupted_logits, CLEAN_BASELINE, CORRUPTED_BASELINE, answer_token_indices
-    )
-
-    print(
-        f"Clean Baseline is 1: {cu.ioi_metric(clean_logits, CLEAN_BASELINE, CORRUPTED_BASELINE, answer_token_indices).item():.4f}"
-    )
-    print(
-        f"Corrupted Baseline is 0: {cu.ioi_metric(corrupted_logits, CLEAN_BASELINE, CORRUPTED_BASELINE, answer_token_indices).item():.4f}"
-    )
 
     clear_gpu_memory(model)
 
@@ -131,23 +114,48 @@ def main(args):
         model_tl_full_name,
         cache_dir,
         ckpts,
-        clean_tokens=clean_tokens,
-        corrupted_tokens=corrupted_tokens,
-        answer_token_indices=answer_token_indices,
+        clean_tokens=ioi_dataset.toks,
+        corrupted_tokens=abc_dataset.toks,
+        dataset=ioi_dataset,
+        batch_size=batch_size,
     )
 
     # save results
     os.makedirs(f"results/{model_name}-no-dropout", exist_ok=True)
     torch.save(
-        results_dict["logit_diffs"], f"results/{model_name}-no-dropout/overall_perf.pt"
+        results_dict["logit_diffs"], f"results/{model_name}-no-dropout/logit_diffs.pt"
     )
     torch.save(
-        results_dict["clean_baselines"],
-        f"results/{model_name}-no-dropout/clean_baselines.pt",
+        results_dict["ld_clean_baselines"],
+        f"results/{model_name}-no-dropout/ld_clean_baselines.pt",
     )
     torch.save(
-        results_dict["corrupted_baselines"],
-        f"results/{model_name}-no-dropout/corrupted_baselines.pt",
+        results_dict["ld_corrupted_baselines"],
+        f"results/{model_name}-no-dropout/ld_corrupted_baselines.pt",
+    )
+    torch.save(
+        results_dict["accuracy_vals"],
+        f"results/{model_name}-no-dropout/accuracy_vals.pt",
+    )
+    torch.save(
+        results_dict["accuracy_clean_baselines"],
+        f"results/{model_name}-no-dropout/acc_clean_baselines.pt",
+    )
+    torch.save(
+        results_dict["accuracy_corrupted_baselines"],
+        f"results/{model_name}-no-dropout/acc_corrupted_baselines.pt",
+    )
+    torch.save(
+        results_dict["rank_0_rate_vals"],
+        f"results/{model_name}-no-dropout/rank_0_rate_vals.pt",
+    )
+    torch.save(
+        results_dict["rank_0_rate_clean_baselines"],
+        f"results/{model_name}-no-dropout/rank_clean_baselines.pt",
+    )
+    torch.save(
+        results_dict["rank_0_rate_corrupted_baselines"],
+        f"results/{model_name}-no-dropout/rank_corrupted_baselines.pt",
     )
 
 

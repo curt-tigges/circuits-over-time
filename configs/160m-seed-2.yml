@@ -1,7 +1,6 @@
 {
   "model_name": "pythia-160m-seed2",
   "model_tl_name": "pythia-160m",
-  "cache_dir": "/fsx/home-curt/saved_models",
+  "cache_dir": "model_cache",
   "checkpoint_schedule": "exp_plus_detail",
-  "data_path": "./data/simple_dataset.txt",
 }
