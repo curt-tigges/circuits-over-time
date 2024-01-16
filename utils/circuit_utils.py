@@ -330,13 +330,13 @@ def get_chronological_circuit_performance(
     get_accuracy = partial(_logits_to_mean_accuracy, ioi_dataset=dataset)
     get_rank_0_rate = partial(_logits_to_rank_0_rate, ioi_dataset=dataset)
 
-    previous_model = None
+    # previous_model = None
 
     for ckpt in ckpts:
 
         # Get model
-        if previous_model is not None:
-            clear_gpu_memory(previous_model)
+        #if previous_model is not None:
+        #    clear_gpu_memory(previous_model)
 
         print(f"Loading model for step {ckpt}...")
         model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
@@ -371,7 +371,7 @@ def get_chronological_circuit_performance(
         print(f"Rank 0 rate: {clean_rank_0_rate}")
         rank_0_rate_vals.append(clean_rank_0_rate)
 
-        previous_model = model
+        # previous_model = model
 
     return {
         "logit_diffs": torch.tensor(logit_diff_vals),

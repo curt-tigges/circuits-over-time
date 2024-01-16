@@ -66,7 +66,7 @@ def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
 
     # model.cfg.device = device
     # model.to(device)
-    clear_gpu_memory(source_model)
+    #clear_gpu_memory(source_model)
 
     return model
 
