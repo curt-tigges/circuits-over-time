@@ -68,7 +68,7 @@ def process_in_batches(
     for i in range(num_batches):
         batch = token_tensor[i * batch_size:(i + 1) * batch_size]
         resized_batch = make_shapes_uniform(batch, max_seq_len=max_seq_len)
-        batch_logits, _ = model.run_with_cache(resized_batch)
+        batch_logits = model(resized_batch)
         results.append(batch_logits)
     return results
 
