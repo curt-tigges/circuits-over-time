@@ -31,10 +31,13 @@ CircuitComponent = namedtuple(
 )
 
 # =============== INFERENCE BATCHING UTILS ===============
-def make_shapes_uniform(batch_tokens, max_seq_len):
-    '''
+def make_shapes_uniform(
+        batch_tokens: Tensor, 
+        max_seq_len: int
+):
+    """
     Makes the shape of the batch token tensor conform to max length by padding with zeros.
-    '''
+    """
     batch_size, seq_len = batch_tokens.shape
     if seq_len < max_seq_len:
         #print(f"Padding batch of shape {batch_tokens.shape} to {max_seq_len}...")
@@ -43,20 +46,50 @@ def make_shapes_uniform(batch_tokens, max_seq_len):
     return batch_tokens
 
 
-def process_in_batches(model, dataset, batch_size):
-    dataset_len = dataset.shape[0]
+def process_in_batches(
+        model: HookedTransformer, 
+        token_tensor: Tensor, 
+        batch_size: int,
+        max_seq_len: int
+)-> List[Tensor]:
+    """ Processes a tensor of tokens in batches.
+
+    Args:
+        model (HookedTransformer): Model to run.
+        token_tensor (Tensor): Tensor of tokens to run inference on.
+        batch_size (int): Batch size to use for inference.
+
+    Returns:
+        List[Tensor]: List of logits for each batch.
+    """
+    dataset_len = token_tensor.shape[0]
     num_batches = dataset_len // batch_size + (1 if dataset_len % batch_size > 0 else 0)
     results = []
     for i in range(num_batches):
-        batch = dataset[i * batch_size:(i + 1) * batch_size]
-        resized_batch = make_shapes_uniform(batch, max_seq_len=21)
+        batch = token_tensor[i * batch_size:(i + 1) * batch_size]
+        resized_batch = make_shapes_uniform(batch, max_seq_len=max_seq_len)
         batch_logits, _ = model.run_with_cache(resized_batch)
         results.append(batch_logits)
     return results
 
 
-def run_with_batches(model, dataset, batch_size):
-    logits = process_in_batches(model, dataset, batch_size)
+def run_with_batches(
+        model: HookedTransformer, 
+        token_tensor: Tensor, 
+        batch_size: int,
+        max_seq_len: int
+)-> Tensor:
+    """ Performs inference with a HookedTransformer model in batches. Resulting logits are concatenated.
+
+    Args:
+        model (HookedTransformer): Model to run.
+        token_tensor (Tensor): Tensor of tokens to run inference on.
+        batch_size (int): Batch size to use for inference.
+
+    Returns:
+        Tensor: Concatenated logits.
+    """
+    logits = process_in_batches(model, token_tensor, batch_size, max_seq_len)
     logit_tensor = torch.cat(logits, dim=0)
     return logit_tensor
 
@@ -330,13 +363,13 @@ def get_chronological_circuit_performance(
     get_accuracy = partial(_logits_to_mean_accuracy, ioi_dataset=dataset)
     get_rank_0_rate = partial(_logits_to_rank_0_rate, ioi_dataset=dataset)
 
-    # previous_model = None
+    previous_model = None
 
     for ckpt in ckpts:
 
         # Get model
-        #if previous_model is not None:
-        #    clear_gpu_memory(previous_model)
+        if previous_model is not None:
+            clear_gpu_memory(previous_model)
 
         print(f"Loading model for step {ckpt}...")
         model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
@@ -371,7 +404,7 @@ def get_chronological_circuit_performance(
         print(f"Rank 0 rate: {clean_rank_0_rate}")
         rank_0_rate_vals.append(clean_rank_0_rate)
 
-        # previous_model = model
+        previous_model = model
 
     return {
         "logit_diffs": torch.tensor(logit_diff_vals),
