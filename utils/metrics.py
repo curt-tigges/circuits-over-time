@@ -3,8 +3,10 @@ import torch
 from torch import Tensor
 from jaxtyping import Float
 
+from transformers import PreTrainedTokenizer
 
 from path_patching_cm.ioi_dataset import IOIDataset
+from data.greater_than_dataset import get_year_indices
 
 
 if torch.cuda.is_available():
@@ -104,3 +106,42 @@ def ioi_metric(logits, clean_baseline, corrupted_baseline, answer_token_indices)
     return (get_logit_diff(logits, answer_token_indices) - corrupted_baseline) / (
         clean_baseline - corrupted_baseline
     )
+
+
+def get_prob_diff(tokenizer: PreTrainedTokenizer):
+    year_indices = get_year_indices(tokenizer) 
+    def prob_diff(logits, years):
+        # Prob diff (negative, since it's a loss)
+        probs = torch.softmax(logits[:, -1], dim=-1)[:, year_indices]
+        diffs = []
+        for prob, year in zip(probs, years):
+            diffs.append(prob[year + 1 :].sum() - prob[: year + 1].sum())
+        return -torch.stack(diffs).mean().to('cuda')
+    return prob_diff
+
+
+class CircuitMetric:
+    """ General wrapper for metric functions
+
+        Functions for which this is to be used as a wrapper should accept logits and a per_prompt argument.
+        Other arguments can be included through args or kwargs. If normalization_fn is not None, it should
+        accept logits, metric_fn, and per_prompt as arguments, and any other arguments can be included through
+        args or kwargs.
+
+        Args:
+            name (str): Name of the metric.
+            metric_fn (function): Function to be wrapped.
+            normalization_fn (function): Function to be used for normalization.
+
+        Returns:
+            function: Wrapped metric function.
+    """
+    def __init__(self, name, metric_fn, normalization_fn=None):
+        self.name = name
+        self.metric_fn = metric_fn
+        self.normalization_fn = normalization_fn
+
+    def __call__(self, logits, per_prompt=False, *args, **kwargs):
+        if self.normalization_fn is not None:
+            return self.normalization_fn(logits, self.metric_fn, per_prompt, *args, **kwargs)
+        return self.metric_fn(logits, per_prompt, *args, **kwargs)

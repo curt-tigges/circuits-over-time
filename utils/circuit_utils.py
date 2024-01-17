@@ -18,7 +18,7 @@ import ipywidgets as widgets
 from IPython.display import display
 
 from utils.model_utils import load_model, clear_gpu_memory
-from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate
+from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate, CircuitMetric
 
 if torch.cuda.is_available():
     device = int(os.environ.get("LOCAL_RANK", 0))
@@ -417,6 +417,62 @@ def get_chronological_circuit_performance(
         "rank_0_rate_clean_baselines": torch.tensor(clean_rank_0_rate_baselines),
         "rank_0_rate_corrupted_baselines": torch.tensor(corrupted_rank_0_rate_baselines),
     }
+
+
+def get_chronological_circuit_performance_flexible(
+    model_hf_name: str,
+    model_tl_name: str,
+    cache_dir: str,
+    ckpts: List[int],
+    clean_tokens: Tensor,
+    corrupted_tokens: Tensor,
+    metrics: List[CircuitMetric],
+    batch_size: int = None,
+):
+    """Gets the performance of a model over time.
+
+    Args:
+        model_hf_name (str): Model name in HuggingFace.
+        model_tl_name (str): Model name in TorchLayers.
+        cache_dir (str): Cache directory.
+        ckpts (List[int]): Checkpoints to evaluate.
+        clean_tokens (Tensor): Clean tokens.
+        corrupted_tokens (Tensor): Corrupted tokens.
+        metrics (List[CircuitMetric]): List of CircuitMetric objects.
+        batch_size (int, optional): Batch size to use for inference. Defaults to None.
+
+    Returns:
+        dict: Dictionary of performance over time.
+    """
+
+    metric_return = {metric.name: [] for metric in metrics}
+
+    previous_model = None
+
+    for ckpt in ckpts:
+
+        # Get model
+        if previous_model is not None:
+            clear_gpu_memory(previous_model)
+
+        print(f"Loading model for step {ckpt}...")
+        model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
+
+        # Get metric values
+        print("Getting metric values...")
+        if batch_size is None:
+            clean_logits = model(clean_tokens)
+            #corrupted_logits = model(corrupted_tokens)
+        else:
+            clean_logits = run_with_batches(model, clean_tokens, batch_size)
+            #corrupted_logits = run_with_batches(model, corrupted_tokens, batch_size)
+
+        for metric in metrics:
+            metric_return[metric.name].append(metric(clean_logits))
+
+        previous_model = model
+
+    return metric_return
 
 
 def get_chronological_circuit_data(
