@@ -122,6 +122,7 @@ def main(args):
         clean_tokens=ds.good_toks.to(device),
         corrupted_tokens=ds.bad_toks.to(device),
         metrics=metrics,
+        max_seq_len=12,
         batch_size=batch_size,
     )
 
