@@ -12,8 +12,8 @@ from torchtyping import TensorType as TT
 
 from utils.model_utils import load_model, clear_gpu_memory
 from utils.data_utils import generate_data_and_caches
-from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate, CircuitMetric
-from data.greater_than_dataset import get_prob_diff, YearDataset, get_valid_years
+from utils.metrics import CircuitMetric, get_prob_diff
+from data.greater_than_dataset import YearDataset, get_valid_years
 import utils.circuit_utils as cu
 
 # Settings
