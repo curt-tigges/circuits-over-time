@@ -110,7 +110,7 @@ def ioi_metric(logits, clean_baseline, corrupted_baseline, answer_token_indices)
 
 def get_prob_diff(tokenizer: PreTrainedTokenizer):
     year_indices = get_year_indices(tokenizer) 
-    def prob_diff(logits, years):
+    def prob_diff(logits, per_prompt, years):
         # Prob diff (negative, since it's a loss)
         probs = torch.softmax(logits[:, -1], dim=-1)[:, year_indices]
         diffs = []

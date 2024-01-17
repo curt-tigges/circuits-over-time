@@ -427,6 +427,7 @@ def get_chronological_circuit_performance_flexible(
     clean_tokens: Tensor,
     corrupted_tokens: Tensor,
     metrics: List[CircuitMetric],
+    max_seq_len: int,
     batch_size: int = None,
 ):
     """Gets the performance of a model over time.
@@ -464,8 +465,8 @@ def get_chronological_circuit_performance_flexible(
             clean_logits = model(clean_tokens)
             #corrupted_logits = model(corrupted_tokens)
         else:
-            clean_logits = run_with_batches(model, clean_tokens, batch_size)
-            #corrupted_logits = run_with_batches(model, corrupted_tokens, batch_size)
+            clean_logits = run_with_batches(model, clean_tokens, batch_size, max_seq_len)
+            #corrupted_logits = run_with_batches(model, corrupted_tokens, batch_size, max_seq_len)
 
         for metric in metrics:
             metric_return[metric.name].append(metric(clean_logits))
