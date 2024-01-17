@@ -117,6 +117,7 @@ def main(args):
         clean_tokens=ioi_dataset.toks,
         corrupted_tokens=abc_dataset.toks,
         dataset=ioi_dataset,
+        max_seq_len=21,
         batch_size=batch_size,
     )
 

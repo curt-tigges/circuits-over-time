@@ -331,6 +331,7 @@ def get_chronological_circuit_performance(
     clean_tokens: Tensor,
     corrupted_tokens: Tensor,
     dataset: IOIDataset,
+    max_seq_len: int,
     batch_size: int = None,
 ):
     """Gets the performance of a model over time.
@@ -380,8 +381,8 @@ def get_chronological_circuit_performance(
             clean_logits = model(clean_tokens)
             corrupted_logits = model(corrupted_tokens)
         else:
-            clean_logits = run_with_batches(model, clean_tokens, batch_size)
-            corrupted_logits = run_with_batches(model, corrupted_tokens, batch_size)
+            clean_logits = run_with_batches(model, clean_tokens, batch_size, max_seq_len)
+            corrupted_logits = run_with_batches(model, corrupted_tokens, batch_size, max_seq_len)
 
         clean_logit_diff = get_logit_diff(clean_logits)
         corrupted_logit_diff = get_logit_diff(corrupted_logits)
