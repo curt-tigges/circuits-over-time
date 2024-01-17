@@ -79,8 +79,8 @@ def main(args):
 
 
     # get baselines
-    clean_logits = cu.run_with_batches(model, ioi_dataset.toks, batch_size)
-    corrupted_logits = cu.run_with_batches(model, abc_dataset.toks, batch_size)
+    clean_logits = cu.run_with_batches(model, ioi_dataset.toks, batch_size, 21)
+    corrupted_logits = cu.run_with_batches(model, abc_dataset.toks, batch_size, 21)
 
     clean_logit_diff = _logits_to_mean_logit_diff(clean_logits, ioi_dataset)
     print(f"Clean logit diff: {clean_logit_diff:.4f}")
