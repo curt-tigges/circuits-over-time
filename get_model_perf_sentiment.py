@@ -16,7 +16,7 @@ from utils.metrics import CircuitMetric, get_prob_diff
 from data.greater_than_dataset import YearDataset, get_valid_years
 import utils.circuit_utils as cu
 
-from data.sentiment_datasets import get_dataset
+from data.sentiment_datasets import get_dataset, PromptType
 from utils.circuit_analysis import get_logit_diff
 
 # Settings
@@ -79,7 +79,8 @@ def main(args):
     )
     
     # set up data
-    ds = get_dataset(model, device)
+    ds_type = PromptType.COMPLETION_2
+    ds = get_dataset(model, device, prompt_type=ds_type)
     
     logit_diff_metric = CircuitMetric("logit_diff_multi", partial(get_logit_diff, answer_tokens=ds.answer_tokens))
 
