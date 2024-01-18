@@ -86,8 +86,8 @@ def main(args):
     metrics = [logit_diff_metric]
     
     # get baselines
-    clean_logits = cu.run_with_batches(model, ds.good_toks.to(device), batch_size=20, max_seq_len=12)
-    corrupted_logits = cu.run_with_batches(model, ds.bad_toks.to(device), batch_size=20, max_seq_len=12)
+    clean_logits = cu.run_with_batches(model, ds.clean_tokens.to(device), batch_size=20, max_seq_len=12)
+    corrupted_logits = cu.run_with_batches(model, ds.corrupted_tokens.to(device), batch_size=20, max_seq_len=12)
 
     clean_prob_diff = logit_diff_metric(clean_logits)
     print(f"Clean logit diff: {clean_prob_diff:.4f}")
