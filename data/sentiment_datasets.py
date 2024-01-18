@@ -60,7 +60,7 @@ def interleave_list(lst: list) -> list:
     return result
 
 
-def filter_words_by_length(model: HookedTransformer, words: list, length: int, verbose=True) -> list:
+def filter_words_by_length(model: HookedTransformer, words: list, length: int, verbose=False) -> list:
     if verbose:
         print("Filtering words by length")
     new_words = []
@@ -117,7 +117,6 @@ class PromptsConfig:
         if prepend_space:
             words = [" " + word.strip() for word in words]
         if filter_length is not None:
-            print("filtering words by length")
             words = filter_words_by_length(model, words, filter_length, verbose=verbose)
         if truncate_length is not None:
             words = truncate_words_by_length(model, words, truncate_length, verbose=verbose)
@@ -176,11 +175,11 @@ class PromptType(Enum):
             PromptType.MEDICAL: "I heard the doctor use the word{MED} and I felt very",
             PromptType.COMPLETION: "I thought this movie was{ADJ1}, I{VRB} it. The acting was{ADJ2}, the plot was{ADJ3}, and overall the movie was just very",
             PromptType.COMPLETION_2: "I thought this movie was{ADJ1}, I{VRB} it. The acting was{ADJ2}, the plot was{ADJ3}, and overall it was just very",
-            PromptType.COMPLETION_3: "I thought this movie was{ADJ1}, I{VRB} it. The acting was{ADJ2}, the plot was{ADJ3}, and overall the movie was just very {ADJ4}. I felt it was",
-            PromptType.CLASSIFICATION: "Review Text: 'I thought this movie was{ADJ1}, I{VRB} it. The acting was{ADJ2}, the plot was{ADJ3}, and overall the movie was just very {ADJ4}.' \nReview Sentiment:",
-            PromptType.CLASSIFICATION_2: "Review Text: I thought this movie was{ADJ1}, I{VRB} it. The acting was{ADJ2}, the plot was{ADJ3}, and overall the movie was just very {ADJ4}. \nReview Sentiment:",
-            PromptType.CLASSIFICATION_3: "Review Text: I thought this movie was{ADJ1}, I{VRB} it. The acting was{ADJ2}, the plot was{ADJ3}, and overall the movie was just very {ADJ4}. Review Sentiment:",
-            PromptType.CLASSIFICATION_4: "I thought this movie was{ADJ1}, I{VRB} it. The acting was{ADJ2}, the plot was{ADJ3}, and overall the movie was just very {ADJ4}. Review Sentiment:",
+            PromptType.COMPLETION_3: "I thought this movie was{ADJ1}, I{VRB} it. The acting was{ADJ2}, the plot was{ADJ3}, and overall the movie was just very{ADJ4}. I felt it was",
+            PromptType.CLASSIFICATION: "Review Text: 'I thought this movie was{ADJ1}, I{VRB} it. The acting was{ADJ2}, the plot was{ADJ3}, and overall the movie was just very{ADJ4}.' \nReview Sentiment:",
+            PromptType.CLASSIFICATION_2: "Review Text: I thought this movie was{ADJ1}, I{VRB} it. The acting was{ADJ2}, the plot was{ADJ3}, and overall the movie was just very{ADJ4}. \nReview Sentiment:",
+            PromptType.CLASSIFICATION_3: "Review Text: I thought this movie was{ADJ1}, I{VRB} it. The acting was{ADJ2}, the plot was{ADJ3}, and overall the movie was just very{ADJ4}. Review Sentiment:",
+            PromptType.CLASSIFICATION_4: "I thought this movie was{ADJ1}, I{VRB} it. The acting was{ADJ2}, the plot was{ADJ3}, and overall the movie was just very{ADJ4}. Review Sentiment:",
             PromptType.RES_CLASS_1: "This restaurant was{ADJ1}, I{VRB} it. The food was{ADJ2}, and the service was{ADJ3}. Overall it was just",
             PromptType.MULTI_SUBJECT_1: (
                 "Review A: 'I thought this movie was{SUBJ1_ADJ1}, I {SUBJ1_VRB} it. The acting was{SUBJ1_ADJ2}, the plot was{SUBJ1_ADJ3}, "
