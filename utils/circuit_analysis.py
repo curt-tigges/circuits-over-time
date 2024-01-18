@@ -3,7 +3,7 @@ from functools import partial
 
 from enum import Enum
 from functools import partial
-from typing import Optional, Tuple, Union, Int
+from typing import Optional, Tuple, Union
 from typeguard import typechecked
 
 from transformers import PreTrainedTokenizerBase
@@ -13,7 +13,7 @@ from transformer_lens import ActivationCache, HookedTransformer
 import torch
 from torchtyping import TensorType as TT
 from torch import Tensor
-from jaxtyping import Float
+from jaxtyping import Float, Int, Bool
 from typing import Tuple
 import einops
 
