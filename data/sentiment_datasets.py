@@ -60,7 +60,7 @@ def interleave_list(lst: list) -> list:
     return result
 
 
-def filter_words_by_length(model: HookedTransformer, words: list, length: int, verbose=False) -> list:
+def filter_words_by_length(model: HookedTransformer, words: list, length: int, verbose=True) -> list:
     if verbose:
         print("Filtering words by length")
     new_words = []
@@ -117,6 +117,7 @@ class PromptsConfig:
         if prepend_space:
             words = [" " + word.strip() for word in words]
         if filter_length is not None:
+            print("filtering words by length")
             words = filter_words_by_length(model, words, filter_length, verbose=verbose)
         if truncate_length is not None:
             words = truncate_words_by_length(model, words, truncate_length, verbose=verbose)
@@ -236,6 +237,7 @@ def get_prompts(
     neutral_prompts: Union[List[str], None]
 
     # Read lists from config
+    print("Reading prompts from config and filtering")
     pos_answers: CircularList[str] = prompt_config.get("positive_answer_tokens", model, filter_length=1)
     neg_answers: CircularList[str] = prompt_config.get("negative_answer_tokens", model, filter_length=1)
     positive_adjectives: CircularList[str] = prompt_config.get("positive_core_adjectives", model, filter_length=1)
