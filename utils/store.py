@@ -4,11 +4,17 @@ from transformer_lens import HookedTransformer
 from typing import Union
 import torch
 import plotly.graph_objects as go
+import pickle
 
 
 def clean_label(label: str) -> str:
     label = label.replace('.npy', '')
+    label = label.replace('.html', '')
     label = label.replace('data/', '')
+    label = label.replace('.csv', '')
+    label = label.replace('.txt', '')
+    label = label.replace('.pkl', '')
+    label = label.replace('.pdf', '')
     assert "/" not in label, "Label must not contain slashes"
     return label
 
@@ -62,3 +68,26 @@ def save_html(
     path = os.path.join(model_path, label + '.html')
     fig.write_html(path)
     return path
+
+
+def get_model_name(model: Union[HookedTransformer, str]) -> str:
+    if isinstance(model, HookedTransformer):
+        assert len(model.cfg.model_name) > 0, "Model must have a name"
+        model = model.cfg.model_name
+    model = model.replace('EleutherAI/', '')
+    if model == 'gpt2':
+        model = 'gpt2-small'
+    return model
+
+
+def load_pickle(
+    label: str,
+    model: Union[HookedTransformer, str],
+):
+    model: str = get_model_name(model)
+    label = clean_label(label)
+    model_path = os.path.join('data', model)
+    path = os.path.join(model_path, label + '.pkl')
+    with open(path, 'rb') as f:
+        obj = pickle.load(f)
+    return obj
