@@ -2,7 +2,7 @@ import os
 import torch
 import gc
 
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformer_lens import HookedTransformer
 
 if torch.cuda.is_available():
@@ -66,7 +66,7 @@ def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
 
     # model.cfg.device = device
     # model.to(device)
-    clear_gpu_memory(source_model)
+    #clear_gpu_memory(source_model)
 
     return model
 
@@ -105,3 +105,22 @@ def load_model_tl(model_tl_name, revision, cache_dir, fp16=False):
     )
 
     return model
+
+# ========= TRANSFORMERS MODELS =========
+def generate_text(prompt, model, model_name, max_length=50):
+    # Load pre-trained model and tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    # Ensure model is in evaluation mode
+    model.eval()
+
+    # Encode the prompt text
+    input_ids = tokenizer.encode(prompt, return_tensors='pt')
+
+    # Generate text
+    with torch.no_grad():  # Disable gradient calculations for efficiency
+        output = model.generate(input_ids, max_length=max_length)
+
+    # Decode and return the generated text
+    generated_text = tokenizer.decode(output[0], skip_special_tokens=True)
+    return generated_text

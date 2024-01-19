@@ -1,10 +1,19 @@
 import os
 from functools import partial
 
+from enum import Enum
+from functools import partial
+from typing import Optional, Tuple, Union
+from typeguard import typechecked
+
+from transformers import PreTrainedTokenizerBase
+from transformer_lens.utils import get_attention_mask
+from transformer_lens import ActivationCache, HookedTransformer
+
 import torch
 from torchtyping import TensorType as TT
 from torch import Tensor
-from jaxtyping import Float
+from jaxtyping import Float, Int, Bool
 from typing import Tuple
 import einops
 
@@ -16,10 +25,44 @@ import ipywidgets as widgets
 from IPython.display import display
 
 
+
 if torch.cuda.is_available():
     device = int(os.environ.get("LOCAL_RANK", 0))
 else:
     device = "cpu"
+
+
+def get_final_non_pad_token(
+    logits: Float[Tensor, "batch pos vocab"],
+    attention_mask: Int[Tensor, "batch pos"],
+) -> Float[Tensor, "batch vocab"]:
+    """Gets the final non-pad token from a tensor.
+
+    Args:
+        logits (torch.Tensor): Logits to use.
+        attention_mask (torch.Tensor): Attention mask to use.
+
+    Returns:
+        torch.Tensor: Final non-pad token logits.
+    """
+    # Get the last non-pad token
+    position_index = einops.repeat(
+        torch.arange(logits.shape[1], device=logits.device),
+        "pos -> batch pos",
+        batch=logits.shape[0],
+    )
+    masked_position = torch.where(
+        attention_mask == 0, torch.full_like(position_index, -1), position_index
+    )
+    last_non_pad_token = einops.reduce(
+        masked_position, "batch pos -> batch", reduction="max"
+    )
+    assert (last_non_pad_token >= 0).all()
+    # Get the final token logits
+    final_token_logits = logits[
+        torch.arange(logits.shape[0]), last_non_pad_token, :
+    ]
+    return final_token_logits
 
 
 # =============== VISUALIZATION UTILS ===============
@@ -319,3 +362,123 @@ def get_knockout_perf_drop(model, heads_to_ablate, clean_tokens, metric):
     return ablated_logit_diff
 
 
+def get_final_token_logits(
+    logits: Float[Tensor, "batch *pos vocab"],
+    tokens: Optional[Int[Tensor, "batch pos"]] = None,
+    tokenizer: Optional[PreTrainedTokenizerBase] = None,
+) -> Float[Tensor, "batch vocab"]:
+    if tokenizer is None and logits.ndim == 3:
+        final_token_logits = logits[:, -1, :]
+    elif tokenizer is None and logits.ndim == 2:
+        final_token_logits = logits
+    else:
+        mask = get_attention_mask(
+            tokenizer, tokens, prepend_bos=False
+        )
+        final_token_logits = get_final_non_pad_token(logits, mask)
+    return final_token_logits
+
+
+@typechecked
+def get_prob_diff(
+    logits: Float[Tensor, "batch *pos vocab"],
+    answer_tokens: Int[Tensor, "batch *n_pairs 2"], 
+    per_prompt: bool = False,
+    tokens: Optional[Int[Tensor, "batch pos"]] = None,
+    tokenizer: Optional[PreTrainedTokenizerBase] = None,
+) -> Float[Tensor, "*batch"]:
+    """
+    Gets the difference between the softmax probabilities of the provided tokens 
+    e.g., the correct and incorrect tokens in IOI
+
+    Args:
+        logits (torch.Tensor): Logits to use.
+        answer_tokens (torch.Tensor): Indices of the tokens to compare.
+
+    Returns:
+        torch.Tensor: Difference between the softmax probs of the provided tokens.
+    """
+    if answer_tokens.ndim == 2:
+        answer_tokens = answer_tokens.unsqueeze(1)
+    n_pairs = answer_tokens.shape[1]
+    final_token_logits: Float[Tensor, "batch vocab"] = get_final_token_logits(
+        logits, tokens=tokens, tokenizer=tokenizer
+    )
+    repeated_logits: Float[Tensor, "batch n_pairs d_vocab"] = einops.repeat(
+        final_token_logits, "batch vocab -> batch n_pairs vocab", n_pairs=n_pairs
+    )
+    probs: Float[Tensor, "batch n_pairs vocab"] = repeated_logits.softmax(dim=-1)
+    left_probs: Float[Tensor, "batch n_pairs"] = probs.gather(
+        -1, answer_tokens[:, :, 0].unsqueeze(-1)
+    ).squeeze(-1)
+    right_probs: Float[Tensor, "batch n_pairs"] = probs.gather(
+        -1, answer_tokens[:, :, 1].unsqueeze(-1)
+    ).squeeze(-1)
+    left_probs_batch: Float[Tensor, "batch"] = left_probs.mean(dim=1)
+    right_probs_batch: Float[Tensor, "batch"] = right_probs.mean(dim=1)
+    if per_prompt:
+        return left_probs_batch - right_probs_batch
+
+    return (left_probs_batch - right_probs_batch).mean()
+
+
+def get_log_probs(
+    logits: Float[Tensor, "batch seq d_vocab"],
+    answer_tokens: Int[Tensor, "batch *n_pairs 2"],
+    tokens: Optional[Int[Tensor, "batch pos"]] = None,
+    tokenizer: Optional[PreTrainedTokenizerBase] = None,
+    per_prompt: bool = False,
+) -> Float[Tensor, "batch n_pairs"]:
+    if answer_tokens.ndim == 2:
+        answer_tokens = answer_tokens.unsqueeze(1)
+    n_pairs = answer_tokens.shape[1]
+    logits: Float[Tensor, "batch vocab"] = get_final_token_logits(
+        logits, tokens=tokens, tokenizer=tokenizer
+    )
+    assert len(answer_tokens.shape) == 2
+    
+    # convert logits to log probabilities
+    log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
+    
+    # get the log probs for the answer tokens
+    log_probs_repeated = einops.repeat(
+        log_probs, "batch vocab -> batch n_pairs vocab", n_pairs=n_pairs
+    )
+    answer_log_probs: Float[Tensor, "batch n_pairs"] = log_probs_repeated.gather(
+        -1, answer_tokens.unsqueeze(-1)
+    )
+    # average over the answer tokens
+    answer_log_probs_batch: Float[Tensor, "batch"] = answer_log_probs.mean(dim=1)
+    if per_prompt:
+        return answer_log_probs_batch
+    else:
+        return answer_log_probs_batch.mean()
+    
+
+def center_logit_diffs(
+    logit_diffs: Float[Tensor, "batch"],
+    answer_tokens: Int[Tensor, "batch *n_pairs 2"], 
+) -> Tuple[Float[Tensor, "batch"], float]:
+    """
+    Useful to debias a model when using as a binary classifier
+    """
+    device = logit_diffs.device
+    if answer_tokens.ndim == 2:
+        answer_tokens = answer_tokens.unsqueeze(1)
+    is_positive = (
+        answer_tokens[:, 0, 0] == 
+        answer_tokens[0, 0, 0]
+    ).to(device=device)
+    bias = torch.where(
+        is_positive, logit_diffs, -logit_diffs
+    ).mean().to(device=device)
+    debiased = (
+        logit_diffs - torch.where(is_positive, bias, -bias)
+    )
+    return debiased, bias.item()
+
+
+def get_accuracy_from_logit_diffs(
+    logit_diffs: Float[Tensor, "batch"]
+):
+    return (logit_diffs > 0).float().mean()
