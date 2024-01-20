@@ -8,6 +8,7 @@ from einops import einsum, rearrange
 import matplotlib.pyplot as plt
 from ACDCPP.graph import Graph, InputNode, LogitNode, AttentionNode, MLPNode
 from ACDCPP.attribute_vectorized import attribute_vectorized 
+from ACDCPP.evaluate_graph import evaluate_graph
 
 #%%
 
@@ -30,6 +31,7 @@ def get_acdcpp_results(model, clean_data, corrupted_data, batch_size, t, metric)
     io_tokenIDs = list(batch(clean_data.io_tokenIDs, batch_size))
     s_tokenIDs = list(batch(clean_data.s_tokenIDs, batch_size))
     word_idx = list(batch(clean_data.word_idx['end'], batch_size))
+    answers = torch.stack((torch.tensor(clean_data.io_tokenIDs), torch.tensor(clean_data.s_tokenIDs)), dim = -1)
 
     # %%
     # Instantiate a graph with a model
@@ -39,8 +41,9 @@ def get_acdcpp_results(model, clean_data, corrupted_data, batch_size, t, metric)
     # Apply a threshold
     g.apply_threshold(t, absolute=True)
     g.prune_dead_nodes(prune_childless=True, prune_parentless=False)
+    #performance = evaluate_graph(model, g, clean_data, corrupted_data, answers, metric)
 
-    return g.get_nodes(), g.get_edges(), g.get_logits()
+    return g, g.get_nodes(), g.get_edges(), g.get_logits()
 
 '''
 gz = g.to_graphviz()
