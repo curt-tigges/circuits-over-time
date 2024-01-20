@@ -6,7 +6,7 @@ from transformer_lens import HookedTransformer
 from tqdm import tqdm
 from einops import rearrange, einsum
 
-from graph import Graph, InputNode, LogitNode, AttentionNode, MLPNode, Node
+from ACDCPP.graph import Graph, InputNode, LogitNode, AttentionNode, MLPNode, Node
 
 def evaluate_graph(model: HookedTransformer, graph: Graph,  clean_inputs, corrupted_inputs, labels, metric: Callable[[Tensor], Tensor], prune:bool=True):
     """

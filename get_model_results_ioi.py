@@ -11,6 +11,7 @@ from utils.data_utils import generate_data_and_caches
 from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate, ave_logit_diff
 from torchtyping import TensorType as TT
 
+
 # Set up argument parser
 parser = argparse.ArgumentParser(description='Run model with specified settings')
 parser.add_argument('model_name', type=str, help='Name of the model to load')
@@ -102,7 +103,7 @@ with torch.no_grad():
 
 threshold = 0.02
 
-nodes, edges, logits = cu.get_acdcpp_circuits(
+g, nodes, edges, logits = cu.get_acdcpp_circuits(
     model_full_name,
     clean_logit_diff = clean_logit_diff, 
     corrupt_logit_diff = -corrupt_logit_diff,
