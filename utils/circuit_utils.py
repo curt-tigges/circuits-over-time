@@ -20,7 +20,7 @@ from IPython.display import display
 from utils.model_utils import load_model, clear_gpu_memory
 from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate, CircuitMetric, get_logit_diff, ioi_metric
 
-from EAPpositional.acdcpp import get_acdcpp_results
+from ACDCPP.acdcpp import get_acdcpp_results
 
 if torch.cuda.is_available():
     device = int(os.environ.get("LOCAL_RANK", 0))

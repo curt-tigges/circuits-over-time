@@ -119,7 +119,6 @@ for k,v in edges.items():
     if v.in_graph:
         graph[k] = float(v.score)
 
-print(graph)
 with open(f"results/{model_name}-acdcpp-{threshold}.json", 'w') as f:
     json.dump(graph, f)
 
