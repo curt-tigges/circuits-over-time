@@ -82,6 +82,7 @@ def get_logit_diff(logits, answer_token_indices, per_prompt=False):
     if len(logits.shape) == 3:
         # Get final logits only
         logits = logits[:, -1, :]
+    answer_token_indices = answer_token_indices.cuda()
     correct_logits = logits.gather(1, answer_token_indices[:, 0].unsqueeze(1))
     incorrect_logits = logits.gather(1, answer_token_indices[:, 1].unsqueeze(1))
     if per_prompt:
@@ -118,6 +119,35 @@ def get_prob_diff(tokenizer: PreTrainedTokenizer):
             diffs.append(prob[year + 1 :].sum() - prob[: year + 1].sum())
         return -torch.stack(diffs).mean().to('cuda')
     return prob_diff
+
+
+def ave_logit_diff(
+    logits: Float[Tensor, 'batch seq d_vocab'],
+    word_idx,
+    io_tokenIDs,
+    s_tokenIDs,
+    per_prompt: bool = False
+):
+    '''
+        Return average logit difference between correct and incorrect answers
+    '''
+    # Get logits for indirect objects
+    io_logits = logits[range(logits.size(0)), word_idx, io_tokenIDs]
+    s_logits = logits[range(logits.size(0)), word_idx, s_tokenIDs]
+    # Get logits for subject
+    logit_diff = io_logits - s_logits
+    return logit_diff if per_prompt else logit_diff.mean()
+
+def ioi_metric(
+    logits: Float[Tensor, "batch seq_len d_vocab"],
+    word_idx,
+    io_tokenIDs,
+    s_tokenIDs,
+    corrupt_logit_diff,
+    clean_logit_diff,
+ ):
+    patched_logit_diff = ave_logit_diff(logits, word_idx, io_tokenIDs, s_tokenIDs)
+    return (patched_logit_diff - corrupt_logit_diff) / (clean_logit_diff - corrupt_logit_diff)
 
 
 class CircuitMetric:
