@@ -47,10 +47,10 @@ class CircuitMetric:
         self.metric_fn = metric_fn
         self.normalization_fn = normalization_fn
 
-    def __call__(self, logits, *args, per_prompt=False, **kwargs):
+    def __call__(self, logits, *args, **kwargs):
         if self.normalization_fn is not None:
-            return self.normalization_fn(logits, self.metric_fn, per_prompt=per_prompt, *args, **kwargs)
-        return self.metric_fn(logits, per_prompt=per_prompt, *args, **kwargs)
+            return self.normalization_fn(logits, self.metric_fn, *args, **kwargs)
+        return self.metric_fn(logits, *args, **kwargs)
     
 
 def get_positional_logits(
