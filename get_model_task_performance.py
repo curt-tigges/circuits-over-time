@@ -20,7 +20,8 @@ from utils.metrics import (
     compute_logit_diff,
     compute_probability_diff,
     compute_probability_mass,
-    compute_rank_0_rate
+    compute_rank_0_rate,
+    compute_accuracy
 )
 
 # Settings
@@ -82,8 +83,14 @@ def get_data_and_metrics(
     if task_name == "ioi":
         ds = UniversalPatchingDataset.from_ioi(model, 70)
         logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, positions=ds.positions)
-        metric = CircuitMetric("logit_diff", logit_diff_metric)
-        metrics = [metric]
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
+        accuracy_metric = partial(compute_accuracy, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
+        rank_0_metric = partial(compute_rank_0_rate, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        rank_0 = CircuitMetric("rank_0", rank_0_metric)
+        probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
+        metrics = [logit_diff, accuracy, rank_0, probability_mass]
 
     elif task_name == "greater_than":
         # Get data

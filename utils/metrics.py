@@ -327,3 +327,40 @@ def compute_rank_0_rate(
 
     return rank_0_rate.mean()
 
+
+def compute_accuracy(
+        logits: torch.Tensor,
+        answer_token_indices: torch.Tensor,
+        positions: torch.Tensor = None,
+        flags_tensor: torch.Tensor = None,
+        mode="simple"
+) -> float:
+    """
+    Calculates the accuracy based on logits and answer token indices.
+
+    Args:
+        logits (torch.Tensor): Logits from the model.
+        answer_token_indices (torch.Tensor): Indices of the tokens to compare.
+        positions (torch.Tensor, optional): Positions to get logits at. Should be one position per batch item.
+        flags_tensor (torch.Tensor, optional): Tensor for flags in 'groups' mode.
+        mode (str, optional): The mode to use in compute_logit_diff function. Defaults to "simple".
+
+    Returns:
+        float: The accuracy as the proportion of cases where correct logits are greater than incorrect logits.
+    """
+    # Compute logit differences
+    logit_diffs = compute_logit_diff(
+        logits, 
+        answer_token_indices, 
+        positions, 
+        flags_tensor, 
+        per_prompt=True,  # Get per-prompt logit differences
+        mode=mode
+    )
+
+    # Calculate accuracy
+    correct_predictions = (logit_diffs > 0).float()  # Positive logit diff indicates correct prediction
+    accuracy = correct_predictions.mean().item()  # Mean of correct predictions
+
+    return accuracy
+
