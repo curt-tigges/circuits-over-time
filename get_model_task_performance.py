@@ -117,6 +117,7 @@ def get_data_and_metrics(
             flags_tensor=ds.group_flags,
             mode="group_sum"
         )
+        probability_mass = CircuitMetric("prob_mass", probability_mass_metric)
         metrics = [logit_diff, probability_diff, probability_mass]
 
     elif task_name == "sentiment_cont":
