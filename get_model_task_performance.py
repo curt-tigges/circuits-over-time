@@ -54,6 +54,26 @@ def read_config(config_path):
         config = yaml.load(f, Loader=yaml.FullLoader)
     return config
 
+def get_ckpts(config):
+    if config["checkpoint_schedule"] == "linear":
+        ckpts = [i * 1000 for i in range(1, 144)]
+    elif config["checkpoint_schedule"] == "exponential":
+        ckpts = [
+            round((2**i) / 1000) * 1000 if 2**i > 1000 else 2**i
+            for i in range(18)
+        ]
+    elif config["checkpoint_schedule"] == "exp_plus_detail":
+        ckpts = (
+            [2**i for i in range(10)]
+            + [i * 1000 for i in range(1, 16)]
+            + [i * 5000 for i in range(3, 14)]
+            + [i * 10000 for i in range(7, 15)]
+        )
+    else:
+        ckpts = [1, 2]
+
+    return ckpts
+
 
 def get_data_and_metrics(
         model: HookedTransformer,
@@ -93,6 +113,11 @@ def get_data_and_metrics(
         metric = CircuitMetric("logit_diff", logit_diff_metric)
         metrics = [metric]
 
+    elif task_name == "mood_sentiment":
+        raise ValueError("Not yet implemented")
+    
+    return ds, metrics
+
 def main(args):
 
     torch.set_grad_enabled(False)
@@ -117,42 +142,22 @@ def main(args):
     )
     
     # set up data
-    ds_type = PromptType.COMPLETION_2
-    ds = get_dataset(model, device, prompt_type=ds_type)
-    
-    logit_diff_metric = CircuitMetric("logit_diff_multi", partial(get_logit_diff, answer_tokens=ds.answer_tokens))
+    ds, metrics = get_data_and_metrics(model, task)
 
-    metrics = [logit_diff_metric]
-    
     # get baselines
-    clean_logits = cu.run_with_batches(model, ds.clean_tokens.to(device), batch_size=20, max_seq_len=12)
-    corrupted_logits = cu.run_with_batches(model, ds.corrupted_tokens.to(device), batch_size=20, max_seq_len=12)
+    clean_logits = cu.run_with_batches(model, ds.clean_tokens.to(device), batch_size=20, max_seq_len=ds.max_seq_len)
+    flipped_logits = cu.run_with_batches(model, ds.corrupted_tokens.to(device), batch_size=20, max_seq_len=ds.max_seq_len)
 
-    clean_prob_diff = logit_diff_metric(clean_logits)
-    print(f"Clean logit diff: {clean_prob_diff:.4f}")
+    clean_primary_metric = metrics[0](clean_logits)
+    print(f"Clean {metrics[0].name}: {clean_primary_metric:.4f}")
 
-    corrupted_prob_diff = logit_diff_metric(corrupted_logits)
-    print(f"Corrupted logit diff: {corrupted_prob_diff:.4f}")
+    flipped_primary_metric = metrics[0](flipped_logits)
+    print(f"Flipped {metrics[0].name}: {flipped_primary_metric:.4f}")
 
     clear_gpu_memory(model)
 
     # specify checkpoint schedule
-    if config["checkpoint_schedule"] == "linear":
-        ckpts = [i * 1000 for i in range(1, 144)]
-    elif config["checkpoint_schedule"] == "exponential":
-        ckpts = [
-            round((2**i) / 1000) * 1000 if 2**i > 1000 else 2**i
-            for i in range(18)
-        ]
-    elif config["checkpoint_schedule"] == "exp_plus_detail":
-        ckpts = (
-            [2**i for i in range(10)]
-            + [i * 1000 for i in range(1, 16)]
-            + [i * 5000 for i in range(3, 14)]
-            + [i * 10000 for i in range(7, 15)]
-        )
-    else:
-        ckpts = [1, 2]
+    ckpts = get_ckpts(config)
 
     # get values over time
     results_dict = cu.get_chronological_circuit_performance_flexible(
@@ -160,19 +165,19 @@ def main(args):
         model_tl_full_name,
         cache_dir,
         ckpts,
-        clean_tokens=ds.clean_tokens.to(device),
-        corrupted_tokens=ds.corrupted_tokens.to(device),
+        clean_tokens=ds.toks,
+        corrupted_tokens=ds.flipped_toks,
         metrics=metrics,
-        max_seq_len=12,
+        max_seq_len=ds.max_seq_len,
         batch_size=batch_size,
     )
 
     # save results
-    os.makedirs(f"results/{model_name}-no-dropout", exist_ok=True)
+    os.makedirs(f"results/{model_name}-no-dropout/{task}", exist_ok=True)
     
     for metric in results_dict.keys():
         torch.save(
-            results_dict[metric], f"results/{model_name}-no-dropout/{metric}.pt"
+            results_dict[metric], f"results/{model_name}-no-dropout/{task}/{metric}.pt"
         )
 
 

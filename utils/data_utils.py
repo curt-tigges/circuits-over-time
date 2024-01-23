@@ -163,7 +163,7 @@ def prepare_indices_for_prob_diff(tokenizer, years):
     return token_ids_tensor, flags_tensor
 
 
-class UniversalDataset():
+class UniversalPatchingDataset():
 
     def __init__(
             self,
