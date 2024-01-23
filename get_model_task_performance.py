@@ -13,10 +13,8 @@ from transformer_lens import HookedTransformer
 
 from utils.model_utils import load_model, clear_gpu_memory
 from utils.data_utils import UniversalPatchingDataset
-from data.greater_than_dataset import YearDataset, get_valid_years
 import utils.circuit_utils as cu
 
-from data.sentiment_datasets import get_dataset, PromptType
 from utils.metrics import (
     CircuitMetric,
     compute_logit_diff,
@@ -165,10 +163,8 @@ def main(args):
         model_tl_full_name,
         cache_dir,
         ckpts,
-        clean_tokens=ds.toks,
-        corrupted_tokens=ds.flipped_toks,
+        dataset=ds,
         metrics=metrics,
-        max_seq_len=ds.max_seq_len,
         batch_size=batch_size,
     )
 
