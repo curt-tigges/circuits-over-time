@@ -71,98 +71,98 @@ def _ioi_metric_noising(
         return ((patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)).item()
 
 
-def get_positional_logits(logits, positions=None):
-    """Gets the logits at the provided positions. If no positions are provided, the final logits are returned.
+# def get_positional_logits(logits, positions=None):
+#     """Gets the logits at the provided positions. If no positions are provided, the final logits are returned.
 
-    Args:
-        logits (torch.Tensor): Logits to use.
-        positions (torch.Tensor): Positions to get logits at.
+#     Args:
+#         logits (torch.Tensor): Logits to use.
+#         positions (torch.Tensor): Positions to get logits at.
 
-    Returns:
-        torch.Tensor: Logits at the provided positions.
-    """
-    if positions is None:
-        return logits[:, -1, :]
-    return logits[range(logits.size(0)), positions]
-
-
-def compute_logit_diff(
-        logits: Float[Tensor, "batch seq d_vocab"], 
-        answer_token_indices: Float[Tensor, "batch num_answers"],
-        positions: Float[Tensor, "batch"] = None,
-        per_prompt=False
-)-> Float[Tensor, "batch num_answers"]:
-    """Computes the difference between a correct and incorrect logit (or mean of a group of logits) for each item in the batch.
-
-    Takes the full logits, and the indices of the tokens to compare. These indices can be of multiple types, either specifying
-    a correct and incorrect token index (in which cases the tensor should be of shape (batch_size, 2)), or a group of correct 
-    and incorrect token indices (in which case the tensor should be of shape (batch_size, 2, num_members)).
-
-    Args:
-        logits (torch.Tensor): Logits to use.
-        answer_token_indices (torch.Tensor): Indices of the tokens to compare.
-        positions (torch.Tensor): Positions to get logits at. Should be one position per batch item.
-
-    Returns:
-        torch.Tensor: Difference between the logits of the provided tokens.
-    """
-    logits = get_positional_logits(logits, positions)
-    if len(answer_token_indices.shape) == 2:
-        answer_token_indices = answer_token_indices.unsqueeze(-1)
-    correct_logits = logits[range(logits.size(0)), answer_token_indices[:, 0]]
-    incorrect_logits = logits[range(logits.size(0)), answer_token_indices[:, 1]]
-    logit_diff = correct_logits - incorrect_logits
-    return logit_diff if per_prompt else logit_diff.mean()
+#     Returns:
+#         torch.Tensor: Logits at the provided positions.
+#     """
+#     if positions is None:
+#         return logits[:, -1, :]
+#     return logits[range(logits.size(0)), positions]
 
 
-def compute_prob_diff(
-        logits: Float[Tensor, "batch seq d_vocab"], 
-        answer_token_indices: Float[Tensor, "batch num_answers"],
-        positions: Float[Tensor, "batch"] = None,
-        per_prompt=False
-)-> Float[Tensor, "batch num_answers"]:
-    """Computes the difference between a correct and incorrect probability (or mean of a group of probabilities) for each item in the batch.
+# def compute_logit_diff(
+#         logits: Float[Tensor, "batch seq d_vocab"], 
+#         answer_token_indices: Float[Tensor, "batch num_answers"],
+#         positions: Float[Tensor, "batch"] = None,
+#         per_prompt=False
+# )-> Float[Tensor, "batch num_answers"]:
+#     """Computes the difference between a correct and incorrect logit (or mean of a group of logits) for each item in the batch.
 
-    Takes the full logits, and the indices of the tokens to compare. These indices can be of multiple types, either specifying
-    a correct and incorrect token index (in which cases the tensor should be of shape (batch_size, 2)), or a group of correct
-    and incorrect token indices (in which case the tensor should be of shape (batch_size, 2, num_members)).
+#     Takes the full logits, and the indices of the tokens to compare. These indices can be of multiple types, either specifying
+#     a correct and incorrect token index (in which cases the tensor should be of shape (batch_size, 2)), or a group of correct 
+#     and incorrect token indices (in which case the tensor should be of shape (batch_size, 2, num_members)).
 
-    Args:
-        logits (torch.Tensor): Logits to use.
-        answer_token_indices (torch.Tensor): Indices of the tokens to compare.
-        positions (torch.Tensor): Positions to get logits at. Should be one position per batch item.
+#     Args:
+#         logits (torch.Tensor): Logits to use.
+#         answer_token_indices (torch.Tensor): Indices of the tokens to compare.
+#         positions (torch.Tensor): Positions to get logits at. Should be one position per batch item.
 
-    Returns:
-        torch.Tensor: Difference between the probabilities of the provided tokens.
-    """
-    logits = get_positional_logits(logits, positions)
-    if len(answer_token_indices.shape) == 2:
-        answer_token_indices = answer_token_indices.unsqueeze(-1)
-    correct_probs = torch.softmax(logits, dim=-1)[range(logits.size(0)), answer_token_indices[:, 0]]
-    incorrect_probs = torch.softmax(logits, dim=-1)[range(logits.size(0)), answer_token_indices[:, 1]]
-    prob_diff = correct_probs - incorrect_probs
-    return prob_diff if per_prompt else prob_diff.mean()
+#     Returns:
+#         torch.Tensor: Difference between the logits of the provided tokens.
+#     """
+#     logits = get_positional_logits(logits, positions)
+#     if len(answer_token_indices.shape) == 2:
+#         answer_token_indices = answer_token_indices.unsqueeze(-1)
+#     correct_logits = logits[range(logits.size(0)), answer_token_indices[:, 0]]
+#     incorrect_logits = logits[range(logits.size(0)), answer_token_indices[:, 1]]
+#     logit_diff = correct_logits - incorrect_logits
+#     return logit_diff if per_prompt else logit_diff.mean()
+
+
+# def compute_prob_diff(
+#         logits: Float[Tensor, "batch seq d_vocab"], 
+#         answer_token_indices: Float[Tensor, "batch num_answers"],
+#         positions: Float[Tensor, "batch"] = None,
+#         per_prompt=False
+# )-> Float[Tensor, "batch num_answers"]:
+#     """Computes the difference between a correct and incorrect probability (or mean of a group of probabilities) for each item in the batch.
+
+#     Takes the full logits, and the indices of the tokens to compare. These indices can be of multiple types, either specifying
+#     a correct and incorrect token index (in which cases the tensor should be of shape (batch_size, 2)), or a group of correct
+#     and incorrect token indices (in which case the tensor should be of shape (batch_size, 2, num_members)).
+
+#     Args:
+#         logits (torch.Tensor): Logits to use.
+#         answer_token_indices (torch.Tensor): Indices of the tokens to compare.
+#         positions (torch.Tensor): Positions to get logits at. Should be one position per batch item.
+
+#     Returns:
+#         torch.Tensor: Difference between the probabilities of the provided tokens.
+#     """
+#     logits = get_positional_logits(logits, positions)
+#     if len(answer_token_indices.shape) == 2:
+#         answer_token_indices = answer_token_indices.unsqueeze(-1)
+#     correct_probs = torch.softmax(logits, dim=-1)[range(logits.size(0)), answer_token_indices[:, 0]]
+#     incorrect_probs = torch.softmax(logits, dim=-1)[range(logits.size(0)), answer_token_indices[:, 1]]
+#     prob_diff = correct_probs - incorrect_probs
+#     return prob_diff if per_prompt else prob_diff.mean()
 
     
 
 
 
-def ioi_metric(logits, clean_baseline, corrupted_baseline, answer_token_indices):
-    """Computes the IOI metric for a given set of logits, baselines, and answer token indices. Metric is relative to the
-    provided baselines.
+# def ioi_metric(logits, clean_baseline, corrupted_baseline, answer_token_indices):
+#     """Computes the IOI metric for a given set of logits, baselines, and answer token indices. Metric is relative to the
+#     provided baselines.
 
-    Args:
-        logits (torch.Tensor): Logits to use.
-        clean_baseline (float): Baseline for the clean model.
-        corrupted_baseline (float): Baseline for the corrupted model.
-        answer_token_indices (torch.Tensor): Indices of the tokens to compare.
+#     Args:
+#         logits (torch.Tensor): Logits to use.
+#         clean_baseline (float): Baseline for the clean model.
+#         corrupted_baseline (float): Baseline for the corrupted model.
+#         answer_token_indices (torch.Tensor): Indices of the tokens to compare.
 
-    Returns:
-        torch.Tensor: IOI metric.
-    """
-    return (get_logit_diff(logits, answer_token_indices) - corrupted_baseline) / (
-        clean_baseline - corrupted_baseline
-    )
+#     Returns:
+#         torch.Tensor: IOI metric.
+#     """
+#     return (get_logit_diff(logits, answer_token_indices) - corrupted_baseline) / (
+#         clean_baseline - corrupted_baseline
+#     )
 
 
 def get_prob_diff(tokenizer: PreTrainedTokenizer):
