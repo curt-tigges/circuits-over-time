@@ -179,7 +179,7 @@ def compute_probability_diff(
     """
     logits = get_positional_logits(logits, positions)
     probabilities = torch.softmax(logits, dim=-1)  # Applying softmax to logits
-    print(f"probabilities={probabilities.shape}")
+    #print(f"probabilities={probabilities.shape}")
 
     # Mode 1: Simple
     if mode == "simple":

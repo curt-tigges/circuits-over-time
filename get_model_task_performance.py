@@ -97,14 +97,27 @@ def get_data_and_metrics(
     elif task_name == "greater_than":
         # Get data
         ds = UniversalPatchingDataset.from_greater_than(model, 1000)
+        logit_diff_metric = partial(
+            compute_logit_diff, 
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags, 
+            mode="groups"
+        )
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
         prob_diff_metric = partial(
             compute_probability_diff, 
             answer_token_indices=ds.answer_toks,
             flags_tensor=ds.group_flags,
             mode="group_sum"
         )
-        metric = CircuitMetric("prob_diff", prob_diff_metric)
-        metrics = [metric]
+        probability_diff = CircuitMetric("prob_diff", prob_diff_metric)
+        probability_mass_metric = partial(
+            compute_probability_mass,
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="group_sum"
+        )
+        metrics = [logit_diff, probability_diff, probability_mass]
 
     elif task_name == "sentiment_cont":
         # Get data
