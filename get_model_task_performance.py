@@ -88,9 +88,11 @@ def get_data_and_metrics(
         accuracy = CircuitMetric("accuracy", accuracy_metric)
         rank_0_metric = partial(compute_rank_0_rate, answer_token_indices=ds.answer_toks, positions=ds.positions)
         rank_0 = CircuitMetric("rank_0", rank_0_metric)
+        probability_diff_metric = partial(compute_probability_diff, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        probability_diff = CircuitMetric("probability_diff", probability_diff_metric)
         probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions)
         probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
-        metrics = [logit_diff, accuracy, rank_0, probability_mass]
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass]
 
     elif task_name == "greater_than":
         # Get data
