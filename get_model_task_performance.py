@@ -143,8 +143,8 @@ def main(args):
     ds, metrics = get_data_and_metrics(model, task)
 
     # get baselines
-    clean_logits = cu.run_with_batches(model, ds.clean_tokens.to(device), batch_size=20, max_seq_len=ds.max_seq_len)
-    flipped_logits = cu.run_with_batches(model, ds.corrupted_tokens.to(device), batch_size=20, max_seq_len=ds.max_seq_len)
+    clean_logits = cu.run_with_batches(model, ds.toks, batch_size=20, max_seq_len=ds.max_seq_len)
+    flipped_logits = cu.run_with_batches(model, ds.flipped_toks, batch_size=20, max_seq_len=ds.max_seq_len)
 
     clean_primary_metric = metrics[0](clean_logits)
     print(f"Clean {metrics[0].name}: {clean_primary_metric:.4f}")
