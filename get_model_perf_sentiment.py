@@ -9,15 +9,21 @@ import argparse
 import yaml
 
 from torchtyping import TensorType as TT
+from transformer_lens import HookedTransformer
 
 from utils.model_utils import load_model, clear_gpu_memory
-from utils.data_utils import generate_data_and_caches
-from utils.metrics import CircuitMetric, get_prob_diff
+from utils.data_utils import UniversalPatchingDataset
 from data.greater_than_dataset import YearDataset, get_valid_years
 import utils.circuit_utils as cu
 
 from data.sentiment_datasets import get_dataset, PromptType
-from utils.circuit_analysis import get_logit_diff
+from utils.metrics import (
+    CircuitMetric,
+    compute_logit_diff,
+    compute_probability_diff,
+    compute_probability_mass,
+    compute_rank_0_rate
+)
 
 # Settings
 if torch.cuda.is_available():
@@ -34,6 +40,12 @@ def get_args():
         default="./configs/defaults.yml",
         help="Path to config file",
     )
+    parser.add_argument(
+        "-t",
+        "--task",
+        default="ioi",
+        help="Name of task on which to evaluate model",
+    )
     return parser.parse_args()
 
 
@@ -43,24 +55,50 @@ def read_config(config_path):
     return config
 
 
-def read_data(file_path):
-    with open(file_path, "r") as f:
-        content = f.read()
+def get_data_and_metrics(
+        model: HookedTransformer,
+        task_name: str,
+    ):
+    assert task_name in ["ioi", "greater_than", "sentiment_cont", "sentiment_class", "mood_sentiment"]
 
-    prompts_str, answers_str = content.split("\n\n")
-    prompts = prompts_str.split("\n")  # Remove the last empty item
-    answers = [
-        tuple(answer.split(",")) for answer in answers_str.split(";")[:-1]
-    ]  # Remove the last empty item
+    if task_name == "ioi":
+        ds = UniversalPatchingDataset.from_ioi(model, 70)
+        logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        metric = CircuitMetric("logit_diff", logit_diff_metric)
+        metrics = [metric]
 
-    return prompts, answers
+    elif task_name == "greater_than":
+        # Get data
+        ds = UniversalPatchingDataset.from_greater_than(model, 1000)
+        prob_diff_metric = partial(
+            compute_probability_diff, 
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="group_sum"
+        )
+        metric = CircuitMetric("prob_diff", prob_diff_metric)
+        metrics = [metric]
 
+    elif task_name == "sentiment_cont":
+        # Get data
+        ds = UniversalPatchingDataset.from_sentiment(model, "cont")
+        logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, mode="pairs")
+        metric = CircuitMetric("logit_diff", logit_diff_metric)
+        metrics = [metric]
+
+    elif task_name == "sentiment_class":
+        # Get data
+        ds = UniversalPatchingDataset.from_sentiment(model, "class")
+        logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, mode="pairs")
+        metric = CircuitMetric("logit_diff", logit_diff_metric)
+        metrics = [metric]
 
 def main(args):
 
     torch.set_grad_enabled(False)
 
     config = read_config(args.config)
+    task = args.task
 
     print(config)
 
