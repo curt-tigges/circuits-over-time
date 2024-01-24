@@ -123,16 +123,44 @@ def get_data_and_metrics(
     elif task_name == "sentiment_cont":
         # Get data
         ds = UniversalPatchingDataset.from_sentiment(model, "cont")
+        
         logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, mode="pairs")
-        metric = CircuitMetric("logit_diff", logit_diff_metric)
-        metrics = [metric]
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
+
+        accuracy_metric = partial(compute_accuracy, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
+        
+        rank_0_metric = partial(compute_rank_0_rate, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        rank_0 = CircuitMetric("rank_0", rank_0_metric)
+        
+        probability_diff_metric = partial(compute_probability_diff, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        probability_diff = CircuitMetric("probability_diff", probability_diff_metric)
+        
+        probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
+        
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass]
 
     elif task_name == "sentiment_class":
         # Get data
         ds = UniversalPatchingDataset.from_sentiment(model, "class")
+        
         logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, mode="pairs")
-        metric = CircuitMetric("logit_diff", logit_diff_metric)
-        metrics = [metric]
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
+
+        accuracy_metric = partial(compute_accuracy, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
+        
+        rank_0_metric = partial(compute_rank_0_rate, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        rank_0 = CircuitMetric("rank_0", rank_0_metric)
+        
+        probability_diff_metric = partial(compute_probability_diff, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        probability_diff = CircuitMetric("probability_diff", probability_diff_metric)
+        
+        probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
+        
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass]
 
     elif task_name == "mood_sentiment":
         raise ValueError("Not yet implemented")
