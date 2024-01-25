@@ -1,0 +1,773 @@
+positive_core_adjectives:
+  - amazing
+  - awesome
+  - beautiful
+  - brilliant
+  - exceptional
+  - extraordinary
+  - fabulous
+  - fantastic
+  - good
+  - great
+  - incredible
+  - lovely
+  - marvelous
+  - outstanding
+  - perfect
+  - remarkable
+  - spectacular
+  - superb
+  - terrific
+  - wonderful
+
+negative_core_adjectives:
+  - awful
+  - bad
+  - disappointing
+  - disgusting
+  - dreadful
+  - horrendous
+  - horrible
+  - mediocre
+  - miserable
+  - offensive
+  - terrible
+  - unpleasant
+  - wretched
+
+neutral_adjectives:
+  - average
+  - normal
+  - standard
+  - typical
+  - common
+  - ordinary
+  - regular
+  - usual
+  - familiar
+  - generic
+  - conventional
+  - fine
+  - okay
+  - ok
+  - decent
+  - fair
+  - satisfactory
+  - adequate
+  - alright
+
+neutral_core_adjectives:
+  - ok
+  - okay
+  - OK
+  - alright
+  - fine
+  - neutral
+  - acceptable
+  - fair
+  - standard
+  - reasonable
+  - average
+
+positive_answer_tokens:
+  - great
+  - amazing
+  - awesome
+  - good
+  - perfect
+
+negative_answer_tokens:
+  - terrible
+  - awful
+  - bad
+  - horrible
+  - disgusting
+
+neutral_answer_tokens:
+  - OK
+  - mediocre
+  - fine
+  - okay
+  - alright
+  - ok
+  - decent
+
+positive_very_answers:
+  - good
+  - nice
+  - well
+
+negative_very_answers:
+  - bad
+  - poor
+  - disappointing
+
+positive_moods:
+  - happy
+  - good
+  - comfortable
+  - excited
+
+negative_moods:
+  - sad
+  - bad
+  - uncomfortable
+  - scared
+
+positive_adverbs:
+  - amusingly
+  - blissfully
+  - buoyantly
+  - cheerfully
+  - comically
+  - delightedly
+  - euphorically
+  - gleefully
+  - gleefully
+  - humorously
+  - jokingly
+  - joyfully
+  - joyously
+  - lightheartedly
+  - merrily
+  - playfuly
+  - radiantly
+  - sportively
+  - triumphantly
+
+negative_adverbs:
+  - corruptly
+  - demonically
+  - devilishly
+  - disgustingly
+  - dreadfully
+  - fearfully
+  - fearingly
+  - frightenedly
+  - frightfully
+  - grimly
+  - gruesomely
+  - horrendously
+  - horrifically
+  - unjustly
+  - monstrously
+  - odiously
+  - obscenely
+  - outrageously
+  - perversely
+  - sadistically
+  - scandalously
+  - shamefully
+  - shamelessly
+  - sinfully
+  - viciously
+  - vilely
+  - wickedly
+
+positive_feelings:
+  - animated
+  - blessed
+  - cheerful
+  - content
+  - delighted
+  - eager
+  - ecstatic
+  - elevated
+  - enthusiastic
+  - festive
+  - glad
+  - grateful
+  - happy
+  - inspired
+  - joyful
+  - lively
+  - merry
+  - optimistic
+  - pleased
+  - radiant
+  - satisfied
+  - sparkling
+  - sunny
+  - thankful
+  - thrilled
+  - upbeat
+  - vibrant
+
+negative_feelings:
+  - agitated
+  - anxious
+  - bothered
+  - cynical
+  - depressed
+  - desolate
+  - dismal
+  - dissatisfied
+  - distressed
+  - down
+  - gloomy
+  - melancholy
+  - miserable
+  - miserable
+  - nervous
+  - pessimistic
+  - restless
+  - restless
+  - sad
+  - sour
+  - uncomfortable
+  - uneasy
+  - unhappy
+  - unhappy
+  - wretched
+  - worried
+
+positive_adjectives_train:
+  - adequate
+  - amazing
+  - awesome
+  - beautiful
+  - brilliant
+  - charming
+  - cheerful
+  - decent
+  - delightful
+  - excellent
+  - exceptional
+  - fabulous
+  - fantastic
+  - good
+  - great
+  - incredible
+  - lovely
+  - nice
+  - outstanding
+  - perfect
+  - pleasant
+  - positive
+  - remarkable
+  - satisfactory
+  - satisfying
+  - splendid
+  - spectacular
+  - superb
+  - terrific
+  - wonderful
+
+negative_adjectives_train:
+  - annoying
+  - awful
+  - bad
+  - boring
+  - depressing
+  - disastrous
+  - disgusting
+  - dire
+  - dreadful
+  - dull
+  - frustrating
+  - horrific
+  - horrible
+  - inadequate
+  - inferior
+  - miserable
+  - nasty
+  - offensive
+  - disappointing
+  - terrible
+  - tragic
+  - ugly
+  - unpleasant
+  - wretched
+
+positive_adjectives_test:
+  - admirable
+  - glorious
+  - helpful
+  - impressive
+  - lively
+  - magical
+  - modern
+  - phenomenal
+  - pleasing
+  - radiant
+  - crisp
+  - strong
+  - stunning
+  - sweet
+  - vivid
+  - warm
+
+negative_adjectives_test:
+  - ancient
+  - appalling
+  - bitter
+  - dismal
+  - flat
+  - foul
+  - grim
+  - lazy
+  - noisy
+  - poor
+  - rough
+  - rotten
+  - sour
+  - vile
+
+positive_comment_adjectives:
+  - adulatory
+  - admiring
+  - approving
+  - appreciative
+  - celebratory
+  - complimentary
+  - congratulatory
+  - ecstatic
+  - encouraging
+  - exultant
+  - favorable
+  - flattering
+  - glowing
+  - heartening
+  - jubilant
+  - kind
+  - laudatory
+  - praiseful
+  - positive
+  - raving
+  - triumphant
+  - warm
+
+negative_comment_adjectives:
+  - critical
+  - damning
+  - deprecating
+  - derogatory
+  - discouraging
+  - disapproving
+  - harsh
+  - hostile
+  - insulting
+  - offensive
+  - pejorative
+  - reproachful
+  - scathing
+  - unadmiring
+  - unappreciative
+  - uncomplimentary
+  - unflattering
+  - unfavorable
+  - unkind
+  - negative
+  - vitriolic
+  
+positive_nouns:
+- beauty
+- blessing
+- charmer
+- delight
+- gem
+- hit
+- jewel
+- joy
+- knockout
+- marvel
+- masterpiece
+- miracle
+- paradise
+- revelation
+- sensation
+- stunner
+- success
+- triumph
+- treasure
+- victory
+- wonder
+
+negative_nouns:
+- blunder
+- bummer
+- bust
+- catastrophe
+- curse
+- debacle
+- disappointment
+- disaster
+- disgrace
+- dud
+- failure
+- fiasco
+- flop
+- letdown
+- mess
+- misfortune
+- mishap
+- misstep
+- nightmare
+- nuisance
+- plague
+- tragedy
+- wreck
+
+
+
+
+positive_adjectives_multitoken:
+  - magnanimous
+  - transcendent
+  - incomparable
+  - luminous
+  - transcendent
+  - alluring
+  - amiable
+  - angelic
+  - captivating
+  - enchanting
+  - uplifting
+  - affable
+  - amicable
+  - blissful
+  - bountiful
+  - commendable
+  - congenial
+  - elated
+  - estimable
+  - exhilarating
+  - genial
+  - gratifying
+  - harmonious
+  - heartening
+  - laudable
+  - peerless
+  - picturesque
+  - rejuvenating
+  - serene
+  - wholesome
+  - winsome
+  - zealous
+
+negative_adjectives_multitoken:
+  - abrasive
+  - belligerent
+  - brash
+  - callous
+  - complacent
+  - crass
+  - deceitful
+  - derisive
+  - devious
+  - disdainful
+  - dissolute
+  - envious
+  - fanatical
+  - hasty
+  - inane
+  - irritable
+  - jaded
+  - lamentable
+  - malevolent
+  - obstinate
+  - overbearing
+  - pompous
+  - pretentious
+  - quarrelsome
+  - reclusive
+  - reprehensible
+  - spiteful
+  - tactless
+  - temperamental
+  - thoughtless
+  - venomous
+  - whiny
+  - xenophobic
+
+positive_french_adjectives:
+  - apaisant
+  - captivant
+  - génial
+  - heureux
+  - incroyable
+  - jovial
+  - joyeux
+  - lumineux
+  - magnifique
+  - parfait
+  - plaisant
+  - satisfaisant
+  - souriant
+  - triomphant
+  - vaillant
+  - énergique
+  - étonnant
+
+negative_french_adjectives:
+  - difficile
+  - décevant
+  - effrayant
+  - hasardeux
+  - honteux
+  - inutile
+  - jaloux
+  - méchant
+  - obstiné
+  - pathétique
+  - pénible
+  - sinistre
+  - sombre
+  - sournois
+  - stupide
+  - superficiel
+
+positive_french_answers:
+  - bien
+  - bon
+  - beau
+  - agréable
+  - amusant
+  - drôle
+  - émotif
+  - sympa
+
+negative_french_answers:
+  - mauvais
+  - étranger
+  - difficile à regarder
+  - simple
+  - décevant
+  - ennuyeux
+  - inintéressant
+
+positive_french_verbs:
+  - adoré
+  - prisé
+
+
+negative_french_verbs:
+  - détesté
+  - déplu
+
+
+positive_proper_nouns:
+  - Mandela
+  - Gandhi
+  - Teresa
+  - Disney
+  - Einstein
+  - Parks
+  - Olympics
+  - Elvis
+  - Beatles
+  - Madonna
+  - Messi
+  - Cher
+  - Potter
+  - Holmes
+  - Mario
+  - Sonic
+
+
+negative_proper_nouns:
+  - Titanic
+  - Afghanistan
+  - Kissinger
+  - TSA
+  - Assad
+  - Gaza
+  - Obama
+  - Romney
+  - Fukushima
+  - BP
+  - Duterte
+  - McCarthy
+  - Hitler
+  - Stalin
+  - Mao
+  - Hussein
+  - Castro
+  - Dudley
+
+
+positive_medical:
+  - antibody
+  - antioxidant
+  - benign
+  - diagnostic
+  - efficacy
+  - optimization
+  - reconstruction
+  - regeneration
+  - rehabilitation
+  - remission
+  - resilience
+  - stabilization
+  - supplement
+  - therapeutic
+  - vaccination
+  - vitamins
+
+
+negative_medical:
+  - chronic
+  - complication
+  - contagious
+  - debilitating
+  - deficiency
+  - disease
+  - dysfunction
+  - hazardous
+  - infection
+  - inflammatory
+  - invasive
+  - mortality
+  - paralysis
+  - pathological
+  - rejection
+  - relapse
+  - resistant
+  - terminal
+  - toxic
+  - traumatic
+  - viral
+
+positive_verbs:
+  # - adored
+  # - admired
+  # - appreciated
+  # - applauded
+  # - approved
+  # - cherished
+  # - commended
+  # - congratulated
+  # - embraced
+  # - endorsed
+  # - enjoyed
+  # - exalted
+  # - favored
+  # - glorified
+  # - liked
+  - loved
+  # - praised
+  # - relished
+  # - respected
+  # - savored
+  # - treasured
+  # - valued
+  # - welcomed
+
+
+negative_verbs:
+  # - abhorred
+  # - abominated
+  # - condemned
+  # - criticized
+  # - denounced
+  # - detested
+  # - disdained
+  # - disliked
+  # - disparaged
+  # - disrespected
+  # - execrated
+  - hated
+  # - loathed
+  # - reviled
+  # - scorned
+  # - shunned
+  # - spurned
+  # - vilified
+  
+
+neutral_verbs:
+  - watched
+
+neutral_top_adjectives:
+  - average
+
+positive_top_adjectives:
+  - good
+
+negative_top_adjectives:
+  - adore
+  - applaud
+  - appreciate
+  - cherish
+  - commend
+  - congratulate
+  - embrace
+  - endorse
+  - enjoy
+  - exalt
+  - favor
+  - glorify
+  - like
+  - love
+  - praise
+  - relish
+  - respect
+  - savor
+  - treasure
+  - value
+  - welcome
+
+positive_infinitives:
+  - adore
+  - admire
+  - applaud
+  - appreciate
+  - cherish
+  - commend
+  - congratulate
+  - embrace
+  - endorse
+  - enjoy
+  - exalt
+  - favor
+  - glorify
+  - like
+  - love
+  - praise
+  - relish
+  - respect
+  - savor
+  - treasure
+  - value
+  - welcome
+
+negative_infinitives:
+  - abhor
+  - abominate
+  - condemn
+  - criticize
+  - denounce
+  - detest
+  - disdain
+  - dislike
+  - disparage
+  - execrate
+  - hate
+  - loathe
+  - revile
+  - scorn
+  - shun
+  - spurn
+  - vilify
+
+positive_answer_infinitives:
+  - love
+  - adore
+  - like
+
+negative_answer_infinitives:
+  - hate
+  - detest
+  - dislike
+
+yes_answers:
+  - 'yes'
+
+no_answers:
+  - 'no'
+
+positive_answer_adjectives:
+  - pleased
+
+negative_answer_adjectives:
+  - disappointed

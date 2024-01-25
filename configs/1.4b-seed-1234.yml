@@ -3,4 +3,5 @@
   "model_tl_name": "pythia-1.4b",
   "cache_dir": "model_cache",
   "checkpoint_schedule": "exp_plus_detail",
+  "batch_size": 20
 }
