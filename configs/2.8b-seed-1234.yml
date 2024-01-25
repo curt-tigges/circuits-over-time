@@ -1,12 +1,8 @@
 {
   "model_name": "pythia-2.8b",
-  "model_tl_name": "pythia-2.8B",
-  #"cache_dir": "model_cache",
-  "cache_dir": "/media/curttigges/project-files/projects/circuits",
+  "model_tl_name": "pythia-2.8b",
+  "cache_dir": "model_cache",
+  #"cache_dir": "/media/curttigges/project-files/projects/circuits",
   "checkpoint_schedule": "exp_plus_detail",
-<<<<<<< Updated upstream
-  "batch_size": 5,
-=======
-  "batch_size": 30
->>>>>>> Stashed changes
+  "batch_size": 10
 }
