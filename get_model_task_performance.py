@@ -185,6 +185,11 @@ def main(args):
     cache_dir = config["cache_dir"]
     batch_size = config["batch_size"]
 
+    if "large_model" in config.keys():
+        large_model = config["large_model"]
+    else:
+        large_model = False
+
     # load model
     model = load_model(
         model_full_name, model_tl_full_name, "step143000", cache_dir=cache_dir
@@ -217,6 +222,7 @@ def main(args):
         dataset=ds,
         metrics=metrics,
         batch_size=batch_size,
+        large_model=large_model
     )
 
     # save results
