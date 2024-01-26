@@ -430,6 +430,7 @@ def get_chronological_circuit_performance_flexible(
     dataset: UniversalPatchingDataset,
     metrics: List[CircuitMetric],
     batch_size: int = None,
+    large_model=False,
 ):
     """Gets the performance of a model over time.
 
@@ -458,7 +459,19 @@ def get_chronological_circuit_performance_flexible(
             clear_gpu_memory(previous_model)
 
         print(f"Loading model for step {ckpt}...")
-        model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
+        
+        if large_model:
+            model = HookedTransformer.from_pretrained(
+                model_tl_name, 
+                checkpoint_value=ckpt,
+                center_unembed=True,
+                center_writing_weights=True,
+                fold_ln=True,
+                dtype=torch.bfloat16,
+                **{"cache_dir": cache_dir},
+            )
+        else:
+            model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
 
         # Get metric values
         print("Getting metric values...")
