@@ -716,7 +716,7 @@ def get_chronological_multi_task_performance(
                 file.write("\n".join(map(str, processed_ckpts)))
 
         global_processed_ckpts.add(ckpt)
-        with open(global_processed_ckpts, "w") as file:
+        with open(global_processed_ckpts_file, "w") as file:
             file.write("\n".join(map(str, global_processed_ckpts)))
 
     return metric_return
