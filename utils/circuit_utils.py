@@ -551,8 +551,6 @@ def get_chronological_circuit_performance_flexible(
         
 
         # Get model
-        if previous_model is not None:
-            clear_gpu_memory(previous_model)
 
         print(f"Loading model for step {ckpt}...")
         
@@ -587,7 +585,7 @@ def get_chronological_circuit_performance_flexible(
         for metric in metrics:
             metric_return[metric.name].append(metric(clean_logits))
 
-        previous_model = model
+        previous_model = True
 
     return metric_return
 
