@@ -191,9 +191,20 @@ def main(args):
         large_model = False
 
     # load model
-    model = load_model(
-        model_full_name, model_tl_full_name, "step143000", cache_dir=cache_dir
-    )
+    if large_model:
+        model = HookedTransformer.from_pretrained(
+            model_full_name, 
+            checkpoint_value=143000,
+            center_unembed=True,
+            center_writing_weights=True,
+            fold_ln=True,
+            dtype=torch.bfloat16,
+            **{"cache_dir": cache_dir},
+        )
+    else:
+        model = load_model(
+            model_full_name, model_tl_full_name, "step143000", cache_dir=cache_dir
+        )
     
     # set up data
     ds, metrics = get_data_and_metrics(model, task)
