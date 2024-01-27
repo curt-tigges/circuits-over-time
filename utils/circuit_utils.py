@@ -640,6 +640,20 @@ def get_chronological_multi_task_performance(
     for ckpt in ckpts:
         print(f"Loading model for step {ckpt}...")
 
+        # Check if the checkpoint has already been processed. If so, skip it.
+        global_results_dir = f"results/{config['model_name']}-no-dropout"
+        os.makedirs(global_results_dir, exist_ok=True)
+        global_processed_ckpts_file = os.path.join(global_results_dir, "processed_ckpts.txt")
+        if os.path.isfile(global_processed_ckpts_file):
+            with open(processed_ckpts_file, "r") as file:
+                global_processed_ckpts = set(map(int, file.read().splitlines()))
+        else:
+            global_processed_ckpts = set()
+
+        if ckpt in global_processed_ckpts:
+            print(f"Checkpoint {ckpt} already processed. Skipping.")
+            continue
+
         # Load the model
         if large_model:
             print("Loading large model...")
@@ -700,6 +714,10 @@ def get_chronological_multi_task_performance(
             processed_ckpts.add(ckpt)
             with open(processed_ckpts_file, "w") as file:
                 file.write("\n".join(map(str, processed_ckpts)))
+
+        global_processed_ckpts.add(ckpt)
+        with open(global_processed_ckpts, "w") as file:
+            file.write("\n".join(map(str, global_processed_ckpts)))
 
     return metric_return
 
