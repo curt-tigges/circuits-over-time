@@ -697,12 +697,6 @@ def get_chronological_multi_task_performance(
                 metric_return[metric.name].append(new_result)
                 torch.save(metric_return[metric.name], os.path.join(results_dir, f"{metric.name}.pt"))
 
-            # Save results and record the processed checkpoint
-            for metric in metrics:
-                new_result = metric(clean_logits)
-                metric_return[metric.name].append(new_result)
-                torch.save(metric_return[metric.name], os.path.join(results_dir, f"{metric.name}.pt"))
-
             processed_ckpts.add(ckpt)
             with open(processed_ckpts_file, "w") as file:
                 file.write("\n".join(map(str, processed_ckpts)))
