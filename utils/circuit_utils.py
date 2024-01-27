@@ -542,16 +542,27 @@ def get_chronological_circuit_performance_flexible(
     """
 
     metric_return = dict()
-
-    previous_model = None
     ds = None
     metrics = None
 
     results_dir = f"results/{config['model_name']}-no-dropout/{task}"
     os.makedirs(results_dir, exist_ok=True)
 
+    # File to track processed checkpoints
+    processed_ckpts_file = os.path.join(results_dir, "processed_ckpts.txt")
+
+    # Load processed checkpoints if the file exists
+    if os.path.isfile(processed_ckpts_file):
+        with open(processed_ckpts_file, "r") as file:
+            processed_ckpts = set(map(int, file.read().splitlines()))
+    else:
+        processed_ckpts = set()
+
     for ckpt in ckpts:
-        # Get model
+        if ckpt in processed_ckpts:
+            print(f"Checkpoint {ckpt} already processed. Skipping.")
+            continue
+
         print(f"Loading model for step {ckpt}...")
         
         if large_model:
@@ -569,7 +580,7 @@ def get_chronological_circuit_performance_flexible(
             model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
 
         # if this is the first iteration, then we load the dataset
-        if previous_model is None:
+        if not metrics:
             ds, metrics = get_data_and_metrics(model, task)
             # Load existing results or initialize
             for metric in metrics:
@@ -588,17 +599,16 @@ def get_chronological_circuit_performance_flexible(
             clean_logits = run_with_batches(model, ds.toks, batch_size, ds.max_seq_len)
             #corrupted_logits = run_with_batches(model, corrupted_tokens, batch_size, max_seq_len)
 
-        for metric in metrics:
-            metric_return[metric.name].append(metric(clean_logits))
-
         # save results so far
         for metric in metrics:
             new_result = metric(clean_logits)
             metric_return[metric.name].append(new_result)
             torch.save(metric_return[metric.name], os.path.join(results_dir, f"{metric.name}.pt"))
 
-
-        previous_model = True
+        # Record the processed checkpoint
+        processed_ckpts.add(ckpt)
+        with open(processed_ckpts_file, "w") as file:
+            file.write("\n".join(map(str, processed_ckpts)))
 
     return metric_return
 
