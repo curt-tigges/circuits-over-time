@@ -515,7 +515,7 @@ def get_data_and_metrics(
 #     }
 
 
-def get_chronological_circuit_performance_flexible(
+def get_chronological_task_performance(
     model_hf_name: str,
     model_tl_name: str,
     config,
@@ -612,6 +612,102 @@ def get_chronological_circuit_performance_flexible(
 
     return metric_return
 
+
+def get_chronological_multi_task_performance(
+    model_hf_name: str,
+    model_tl_name: str,
+    config,
+    cache_dir: str,
+    ckpts: List[int],
+    batch_size: int = None,
+    large_model=False,
+):
+    """Gets the performance of a model over time for multiple tasks.
+
+    Args:
+        model_hf_name (str): Model name in HuggingFace.
+        model_tl_name (str): Model name in TorchLayers.
+        config (dict): Configuration dictionary containing tasks.
+        cache_dir (str): Cache directory.
+        ckpts (List[int]): Checkpoints to evaluate.
+        batch_size (int, optional): Batch size to use for inference. Defaults to None.
+        large_model (bool, optional): Flag to indicate if the model is large. Defaults to False.
+
+    Returns:
+        dict: Dictionary of performance over time for each task.
+    """
+
+    for ckpt in ckpts:
+        print(f"Loading model for step {ckpt}...")
+
+        # Load the model
+        if large_model:
+            print("Loading large model...")
+            model = HookedTransformer.from_pretrained(
+                model_tl_name, 
+                checkpoint_value=ckpt,
+                center_unembed=True,
+                center_writing_weights=True,
+                fold_ln=True,
+                dtype=torch.bfloat16,
+                **{"cache_dir": cache_dir},
+            )
+        else:
+            model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
+
+        # Iterate through each task
+        for task in config["tasks"]:
+            results_dir = f"results/{config['model_name']}-no-dropout/{task}"
+            os.makedirs(results_dir, exist_ok=True)
+            processed_ckpts_file = os.path.join(results_dir, "processed_ckpts.txt")
+
+            # Load processed checkpoints if the file exists
+            if os.path.isfile(processed_ckpts_file):
+                with open(processed_ckpts_file, "r") as file:
+                    processed_ckpts = set(map(int, file.read().splitlines()))
+            else:
+                processed_ckpts = set()
+
+            if ckpt in processed_ckpts:
+                print(f"Checkpoint {ckpt} for task {task} already processed. Skipping.")
+                continue
+
+            # Get data and metrics for the current task
+            ds, metrics = get_data_and_metrics(model, task)
+            metric_return = {metric.name: [] for metric in metrics}
+
+            # Load existing results or initialize
+            for metric in metrics:
+                result_path = os.path.join(results_dir, f"{metric.name}.pt")
+                if os.path.isfile(result_path):
+                    metric_return[metric.name] = torch.load(result_path)
+
+            # Get metric values
+            print(f"Getting metric values for task {task}...")
+            if batch_size is None:
+                # If no batch_size is specified, process all data at once
+                clean_logits = model(ds.toks)
+            else:
+                # If batch_size is specified, process data in batches
+                clean_logits = run_with_batches(model, ds.toks, batch_size, ds.max_seq_len)
+
+            # Update metrics for each metric in the task
+            for metric in metrics:
+                new_result = metric(clean_logits)
+                metric_return[metric.name].append(new_result)
+                torch.save(metric_return[metric.name], os.path.join(results_dir, f"{metric.name}.pt"))
+
+            # Save results and record the processed checkpoint
+            for metric in metrics:
+                new_result = metric(clean_logits)
+                metric_return[metric.name].append(new_result)
+                torch.save(metric_return[metric.name], os.path.join(results_dir, f"{metric.name}.pt"))
+
+            processed_ckpts.add(ckpt)
+            with open(processed_ckpts_file, "w") as file:
+                file.write("\n".join(map(str, processed_ckpts)))
+
+    return metric_return
 
 # DEPRECATED
 # def get_chronological_circuit_data(
