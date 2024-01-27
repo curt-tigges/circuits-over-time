@@ -518,6 +518,7 @@ def get_data_and_metrics(
 def get_chronological_circuit_performance_flexible(
     model_hf_name: str,
     model_tl_name: str,
+    config,
     cache_dir: str,
     ckpts: List[int],
     task: str = "ioi",
@@ -546,12 +547,11 @@ def get_chronological_circuit_performance_flexible(
     ds = None
     metrics = None
 
+    results_dir = f"results/{config['model_name']}-no-dropout/{task}"
+    os.makedirs(results_dir, exist_ok=True)
+
     for ckpt in ckpts:
-
-        
-
         # Get model
-
         print(f"Loading model for step {ckpt}...")
         
         if large_model:
@@ -571,7 +571,13 @@ def get_chronological_circuit_performance_flexible(
         # if this is the first iteration, then we load the dataset
         if previous_model is None:
             ds, metrics = get_data_and_metrics(model, task)
-            metric_return = {metric.name: [] for metric in metrics}
+            # Load existing results or initialize
+            for metric in metrics:
+                result_path = os.path.join(results_dir, f"{metric.name}.pt")
+                if os.path.isfile(result_path):
+                    metric_return[metric.name] = torch.load(result_path)
+                else:
+                    metric_return[metric.name] = []
         
         # Get metric values
         print("Getting metric values...")
@@ -584,6 +590,13 @@ def get_chronological_circuit_performance_flexible(
 
         for metric in metrics:
             metric_return[metric.name].append(metric(clean_logits))
+
+        # save results so far
+        for metric in metrics:
+            new_result = metric(clean_logits)
+            metric_return[metric.name].append(new_result)
+            torch.save(metric_return[metric.name], os.path.join(results_dir, f"{metric.name}.pt"))
+
 
         previous_model = True
 

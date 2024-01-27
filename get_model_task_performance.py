@@ -104,6 +104,7 @@ def main(args):
     results_dict = cu.get_chronological_circuit_performance_flexible(
         model_full_name,
         model_tl_full_name,
+        config,
         cache_dir,
         ckpts,
         task=task,
