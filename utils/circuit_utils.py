@@ -636,6 +636,7 @@ def get_chronological_multi_task_performance(
     Returns:
         dict: Dictionary of performance over time for each task.
     """
+    metric_return = dict()
 
     for ckpt in ckpts:
         print(f"Loading model for step {ckpt}...")
@@ -643,7 +644,7 @@ def get_chronological_multi_task_performance(
         # Check if the checkpoint has already been processed. If so, skip it.
         global_results_dir = f"results/{config['model_name']}-no-dropout"
         os.makedirs(global_results_dir, exist_ok=True)
-        global_processed_ckpts_file = os.path.join(global_results_dir, "processed_ckpts.txt")
+        global_processed_ckpts_file = os.path.join(global_results_dir, "global_processed_ckpts.txt")
         if os.path.isfile(global_processed_ckpts_file):
             with open(processed_ckpts_file, "r") as file:
                 global_processed_ckpts = set(map(int, file.read().splitlines()))
