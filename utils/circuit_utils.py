@@ -18,9 +18,8 @@ import ipywidgets as widgets
 from IPython.display import display
 
 from utils.model_utils import load_model, clear_gpu_memory
-from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate, CircuitMetric, get_logit_diff, ioi_metric
-
-from ACDCPP.acdcpp import get_acdcpp_results
+from utils.data_utils import UniversalPatchingDataset
+from utils.metrics import CircuitMetric, compute_logit_diff, compute_probability_diff, compute_probability_mass, compute_rank_0_rate, compute_accuracy
 
 if torch.cuda.is_available():
     device = int(os.environ.get("LOCAL_RANK", 0))
@@ -325,6 +324,99 @@ def get_knockout_perf_drop(model, heads_to_ablate, clean_tokens, metric):
 
 
 # =========================== CIRCUITS OVER TIME ===========================
+
+def get_data_and_metrics(
+        model: HookedTransformer,
+        task_name: str,
+    ):
+    assert task_name in ["ioi", "greater_than", "sentiment_cont", "sentiment_class", "mood_sentiment"]
+
+    if task_name == "ioi":
+        ds = UniversalPatchingDataset.from_ioi(model, 70)
+        logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
+        accuracy_metric = partial(compute_accuracy, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
+        rank_0_metric = partial(compute_rank_0_rate, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        rank_0 = CircuitMetric("rank_0", rank_0_metric)
+        probability_diff_metric = partial(compute_probability_diff, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        probability_diff = CircuitMetric("probability_diff", probability_diff_metric)
+        probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass]
+
+    elif task_name == "greater_than":
+        # Get data
+        ds = UniversalPatchingDataset.from_greater_than(model, 1000)
+        logit_diff_metric = partial(
+            compute_logit_diff, 
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags, 
+            mode="groups"
+        )
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
+        prob_diff_metric = partial(
+            compute_probability_diff, 
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="group_sum"
+        )
+        probability_diff = CircuitMetric("prob_diff", prob_diff_metric)
+        probability_mass_metric = partial(
+            compute_probability_mass,
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="group_sum"
+        )
+        probability_mass = CircuitMetric("prob_mass", probability_mass_metric)
+        metrics = [logit_diff, probability_diff, probability_mass]
+
+    elif task_name == "sentiment_cont":
+        # Get data
+        ds = UniversalPatchingDataset.from_sentiment(model, "cont")
+        
+        logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, mode="pairs")
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
+
+        accuracy_metric = partial(compute_accuracy, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
+        
+        rank_0_metric = partial(compute_rank_0_rate, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        rank_0 = CircuitMetric("rank_0", rank_0_metric)
+        
+        probability_diff_metric = partial(compute_probability_diff, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        probability_diff = CircuitMetric("probability_diff", probability_diff_metric)
+        
+        probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
+        
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass]
+
+    elif task_name == "sentiment_class":
+        # Get data
+        ds = UniversalPatchingDataset.from_sentiment(model, "class")
+        
+        logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, mode="pairs")
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
+
+        accuracy_metric = partial(compute_accuracy, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
+        
+        rank_0_metric = partial(compute_rank_0_rate, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        rank_0 = CircuitMetric("rank_0", rank_0_metric)
+        
+        probability_diff_metric = partial(compute_probability_diff, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        probability_diff = CircuitMetric("probability_diff", probability_diff_metric)
+        
+        probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
+        
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass]
+
+    elif task_name == "mood_sentiment":
+        raise ValueError("Not yet implemented")
+    
+    return ds, metrics
 # DEPRECATED
 # def get_chronological_circuit_performance(
 #     model_hf_name: str,
@@ -428,8 +520,7 @@ def get_chronological_circuit_performance_flexible(
     model_tl_name: str,
     cache_dir: str,
     ckpts: List[int],
-    dataset: UniversalPatchingDataset,
-    metrics: List[CircuitMetric],
+    task: str = "ioi",
     batch_size: int = None,
     large_model=False,
 ):
@@ -452,8 +543,12 @@ def get_chronological_circuit_performance_flexible(
     metric_return = {metric.name: [] for metric in metrics}
 
     previous_model = None
+    ds = None
+    metrics = None
 
     for ckpt in ckpts:
+
+        
 
         # Get model
         if previous_model is not None:
@@ -475,13 +570,17 @@ def get_chronological_circuit_performance_flexible(
         else:
             model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
 
+        # if this is the first iteration, then we load the dataset
+        if previous_model is None:
+            ds, metrics = get_data_and_metrics(model, task)
+        
         # Get metric values
         print("Getting metric values...")
         if batch_size is None:
-            clean_logits = model(dataset.toks)
+            clean_logits = model(ds.toks)
             #corrupted_logits = model(corrupted_tokens)
         else:
-            clean_logits = run_with_batches(model, dataset.toks, batch_size, dataset.max_seq_len)
+            clean_logits = run_with_batches(model, ds.toks, batch_size, ds.max_seq_len)
             #corrupted_logits = run_with_batches(model, corrupted_tokens, batch_size, max_seq_len)
 
         for metric in metrics:
