@@ -65,7 +65,7 @@ def get_ckpts(config):
         )
     elif config["checkpoint_schedule"] == "special":
         ckpts = (
-            + [i * 1000 for i in range(3, 16)]
+            [i * 1000 for i in range(3, 16)]
             + [i * 5000 for i in range(4, 14)]
             + [i * 10000 for i in range(7, 15)]
             + [143000]
