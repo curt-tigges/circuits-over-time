@@ -74,7 +74,6 @@ def main(args):
     torch.set_grad_enabled(False)
 
     config = read_config(args.config)
-    task = args.task
 
     print(config)
 
