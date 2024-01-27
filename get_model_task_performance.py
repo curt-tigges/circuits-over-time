@@ -190,6 +190,7 @@ def main(args):
     else:
         large_model = False
 
+    print(f"Model is large: {large_model}")
     # load model
     if large_model:
         model = HookedTransformer.from_pretrained(

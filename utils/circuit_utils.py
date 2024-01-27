@@ -461,6 +461,7 @@ def get_chronological_circuit_performance_flexible(
         print(f"Loading model for step {ckpt}...")
         
         if large_model:
+            print("Loading large model...")
             model = HookedTransformer.from_pretrained(
                 model_tl_name, 
                 checkpoint_value=ckpt,
