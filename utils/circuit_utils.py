@@ -541,7 +541,7 @@ def get_chronological_circuit_performance_flexible(
         dict: Dictionary of performance over time.
     """
 
-    metric_return = None
+    metric_return = dict()
 
     previous_model = None
     ds = None
