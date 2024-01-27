@@ -61,6 +61,7 @@ def get_ckpts(config):
             + [i * 1000 for i in range(1, 16)]
             + [i * 5000 for i in range(3, 14)]
             + [i * 10000 for i in range(7, 15)]
+            + [143000]
         )
     else:
         ckpts = [1, 2]
