@@ -59,7 +59,7 @@ def get_ckpts(config):
         ckpts = (
             [2**i for i in range(10)]
             + [i * 1000 for i in range(1, 16)]
-            + [i * 5000 for i in range(3, 14)]
+            + [i * 5000 for i in range(4, 14)]
             + [i * 10000 for i in range(7, 15)]
             + [143000]
         )
