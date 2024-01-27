@@ -39,12 +39,6 @@ def get_args():
         default="./configs/defaults.yml",
         help="Path to config file",
     )
-    parser.add_argument(
-        "-t",
-        "--task",
-        default="ioi",
-        help="Name of task on which to evaluate model",
-    )
     return parser.parse_args()
 
 
@@ -101,24 +95,17 @@ def main(args):
     ckpts = get_ckpts(config)
 
     # get values over time
-    results_dict = cu.get_chronological_circuit_performance_flexible(
+    results_dict = cu.get_chronological_multi_task_performance(
         model_full_name,
         model_tl_full_name,
         config,
         cache_dir,
         ckpts,
-        task=task,
         batch_size=batch_size,
         large_model=large_model
     )
 
     # save results
-    os.makedirs(f"results/{model_name}-no-dropout/{task}", exist_ok=True)
-    
-    for metric in results_dict.keys():
-        torch.save(
-            results_dict[metric], f"results/{model_name}-no-dropout/{task}/{metric}.pt"
-        )
 
 
 if __name__ == "__main__":
