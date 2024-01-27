@@ -672,7 +672,7 @@ def get_chronological_multi_task_performance(
         os.makedirs(global_results_dir, exist_ok=True)
         global_processed_ckpts_file = os.path.join(global_results_dir, "global_processed_ckpts.txt")
         if os.path.isfile(global_processed_ckpts_file):
-            with open(processed_ckpts_file, "r") as file:
+            with open(global_processed_ckpts_file, "r") as file:
                 global_processed_ckpts = set(map(int, file.read().splitlines()))
         else:
             global_processed_ckpts = set()
