@@ -540,7 +540,7 @@ def get_chronological_circuit_performance_flexible(
         dict: Dictionary of performance over time.
     """
 
-    metric_return = {metric.name: [] for metric in metrics}
+    metric_return = None
 
     previous_model = None
     ds = None
@@ -573,6 +573,7 @@ def get_chronological_circuit_performance_flexible(
         # if this is the first iteration, then we load the dataset
         if previous_model is None:
             ds, metrics = get_data_and_metrics(model, task)
+            metric_return = {metric.name: [] for metric in metrics}
         
         # Get metric values
         print("Getting metric values...")
