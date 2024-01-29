@@ -372,7 +372,13 @@ def get_data_and_metrics(
             mode="group_sum"
         )
         probability_mass = CircuitMetric("prob_mass", probability_mass_metric)
-        metrics = [logit_diff, probability_diff, probability_mass]
+        accuracy_metric = partial(
+            compute_accuracy,
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="groups"
+        )
+        metrics = [logit_diff, probability_diff, probability_mass, accuracy]
 
     elif task_name == "sentiment_cont":
         # Get data
@@ -535,41 +541,32 @@ def get_chronological_task_performance(
         model_tl_name (str): Model name in TorchLayers.
         cache_dir (str): Cache directory.
         ckpts (List[int]): Checkpoints to evaluate.
-        clean_tokens (Tensor): Clean tokens.
-        corrupted_tokens (Tensor): Corrupted tokens.
-        metrics (List[CircuitMetric]): List of CircuitMetric objects.
+        task (str): The task for evaluation.
         batch_size (int, optional): Batch size to use for inference. Defaults to None.
+        large_model (bool): Flag for loading large models.
 
     Returns:
         dict: Dictionary of performance over time.
     """
 
-    metric_return = dict()
+    metric_return = {}
     ds = None
     metrics = None
 
     results_dir = f"results/{config['model_name']}-no-dropout/{task}"
     os.makedirs(results_dir, exist_ok=True)
 
-    # File to track processed checkpoints
-    processed_ckpts_file = os.path.join(results_dir, "processed_ckpts.txt")
-
-    # Load processed checkpoints if the file exists
-    if os.path.isfile(processed_ckpts_file):
-        with open(processed_ckpts_file, "r") as file:
-            processed_ckpts = set(map(int, file.read().splitlines()))
-    else:
-        processed_ckpts = set()
-
     for ckpt in ckpts:
-        if ckpt in processed_ckpts:
+        ckpt_key = f"step{ckpt}"
+        # Check if this checkpoint is already processed
+        if metric_return and any(ckpt_key in metric_return.get(metric.name, {}) for metric in metrics):
             print(f"Checkpoint {ckpt} already processed. Skipping.")
             continue
 
         print(f"Loading model for step {ckpt}...")
-        
         if large_model:
             print("Loading large model...")
+            # Assuming HookedTransformer is defined elsewhere
             model = HookedTransformer.from_pretrained(
                 model_tl_name, 
                 checkpoint_value=ckpt,
@@ -580,38 +577,29 @@ def get_chronological_task_performance(
                 **{"cache_dir": cache_dir},
             )
         else:
-            model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
+            # Assuming load_model function is defined elsewhere
+            model = load_model(model_hf_name, model_tl_name, ckpt_key, cache_dir)
 
-        # if this is the first iteration, then we load the dataset
+        # Load data and metrics if this is the first iteration
         if not metrics:
             ds, metrics = get_data_and_metrics(model, task)
-            # Load existing results or initialize
-            for metric in metrics:
-                result_path = os.path.join(results_dir, f"{metric.name}.pt")
-                if os.path.isfile(result_path):
-                    metric_return[metric.name] = torch.load(result_path)
-                else:
-                    metric_return[metric.name] = []
-        
+            metric_return = {metric.name: {} for metric in metrics}  # Initialize dict for each metric
+
         # Get metric values
         print("Getting metric values...")
         if batch_size is None:
             clean_logits = model(ds.toks)
-            #corrupted_logits = model(corrupted_tokens)
         else:
+            # Assuming run_with_batches is defined elsewhere
             clean_logits = run_with_batches(model, ds.toks, batch_size, ds.max_seq_len)
-            #corrupted_logits = run_with_batches(model, corrupted_tokens, batch_size, max_seq_len)
 
-        # save results so far
+        # Update results in the dictionary
         for metric in metrics:
             new_result = metric(clean_logits)
-            metric_return[metric.name].append(new_result)
-            torch.save(metric_return[metric.name], os.path.join(results_dir, f"{metric.name}.pt"))
+            metric_return[metric.name][ckpt_key] = new_result
 
-        # Record the processed checkpoint
-        processed_ckpts.add(ckpt)
-        with open(processed_ckpts_file, "w") as file:
-            file.write("\n".join(map(str, processed_ckpts)))
+        # Save results after processing each checkpoint
+        torch.save(metric_return, os.path.join(results_dir, "metrics.pt"))
 
     return metric_return
 
