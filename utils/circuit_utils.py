@@ -378,6 +378,7 @@ def get_data_and_metrics(
             flags_tensor=ds.group_flags,
             mode="groups"
         )
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
         metrics = [logit_diff, probability_diff, probability_mass, accuracy]
 
     elif task_name == "sentiment_cont":
