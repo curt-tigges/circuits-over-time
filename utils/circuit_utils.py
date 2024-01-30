@@ -641,7 +641,7 @@ def get_chronological_multi_task_performance(
 
         # Check if this checkpoint needs processing
         for task in config["tasks"]:
-            if metric_return[task] and all(ckpt_key in metric_return.get(metric.name, {}) for metric in metric_return[task]):
+            if metric_return[task] and all(ckpt_key in metric_return[task].get(metric, {}) for metric in metric_return[task]):
                 continue
             else:
                 process_this_checkpoint = True
