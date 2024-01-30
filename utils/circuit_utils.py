@@ -557,7 +557,7 @@ def get_chronological_task_performance(
     for ckpt in ckpts:
         ckpt_key = f"step{ckpt}"
         # Check if this checkpoint is already processed
-        if metric_return and any(ckpt_key in metric_return.get(metric.name, {}) for metric in metrics):
+        if metric_return and all(ckpt_key in metric_return.get(metric.name, {}) for metric in metrics):
             print(f"Checkpoint {ckpt} already processed. Skipping.")
             continue
 
@@ -625,25 +625,33 @@ def get_chronological_multi_task_performance(
     Returns:
         dict: Dictionary of performance over time for each task.
     """
-    metric_return = dict()
+    global_results_dir = f"results/{config['model_name']}-no-dropout"
+    os.makedirs(global_results_dir, exist_ok=True)
+    metrics_path = os.path.join(global_results_dir, "metrics.pt")
+
+    # Load existing metrics dictionary or initialize it
+    if os.path.isfile(metrics_path):
+        metric_return = torch.load(metrics_path)
+    else:
+        metric_return = {task: {} for task in config["tasks"]}
 
     for ckpt in ckpts:
-        print(f"Loading model for step {ckpt}...")
+        ckpt_key = f"step{ckpt}"
+        process_this_checkpoint = False
 
-        # Check if the checkpoint has already been processed. If so, skip it.
-        global_results_dir = f"results/{config['model_name']}-no-dropout"
-        os.makedirs(global_results_dir, exist_ok=True)
-        global_processed_ckpts_file = os.path.join(global_results_dir, "global_processed_ckpts.txt")
-        if os.path.isfile(global_processed_ckpts_file):
-            with open(global_processed_ckpts_file, "r") as file:
-                global_processed_ckpts = set(map(int, file.read().splitlines()))
-        else:
-            global_processed_ckpts = set()
+        # Check if this checkpoint needs processing
+        for task in config["tasks"]:
+            if metric_return[task] and all(ckpt_key in metric_return.get(metric.name, {}) for metric in metric_return[task]):
+                continue
+            else:
+                process_this_checkpoint = True
+                break
 
-        if ckpt in global_processed_ckpts:
-            print(f"Checkpoint {ckpt} already processed. Skipping.")
+        if not process_this_checkpoint:
+            print(f"Checkpoint {ckpt} has all tasks processed. Skipping.")
             continue
 
+        print(f"Loading model for step {ckpt}...")
         # Load the model
         if large_model:
             print("Loading large model...")
@@ -657,59 +665,28 @@ def get_chronological_multi_task_performance(
                 **{"cache_dir": cache_dir},
             )
         else:
-            model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
+            model = load_model(model_hf_name, model_tl_name, ckpt_key, cache_dir)
 
-        # Iterate through each task
         for task in config["tasks"]:
-            results_dir = f"results/{config['model_name']}-no-dropout/{task}"
-            os.makedirs(results_dir, exist_ok=True)
-            processed_ckpts_file = os.path.join(results_dir, "processed_ckpts.txt")
-
-            # Load processed checkpoints if the file exists
-            if os.path.isfile(processed_ckpts_file):
-                with open(processed_ckpts_file, "r") as file:
-                    processed_ckpts = set(map(int, file.read().splitlines()))
-            else:
-                processed_ckpts = set()
-
-            if ckpt in processed_ckpts:
-                print(f"Checkpoint {ckpt} for task {task} already processed. Skipping.")
-                continue
-
-            # Get data and metrics for the current task
             ds, metrics = get_data_and_metrics(model, task)
-            metric_return = {metric.name: [] for metric in metrics}
-
-            # Load existing results or initialize
-            for metric in metrics:
-                result_path = os.path.join(results_dir, f"{metric.name}.pt")
-                if os.path.isfile(result_path):
-                    metric_return[metric.name] = torch.load(result_path)
-
-            # Get metric values
-            print(f"Getting metric values for task {task}...")
             if batch_size is None:
-                # If no batch_size is specified, process all data at once
                 clean_logits = model(ds.toks)
             else:
-                # If batch_size is specified, process data in batches
                 clean_logits = run_with_batches(model, ds.toks, batch_size, ds.max_seq_len)
 
-            # Update metrics for each metric in the task
             for metric in metrics:
-                new_result = metric(clean_logits)
-                metric_return[metric.name].append(new_result)
-                torch.save(metric_return[metric.name], os.path.join(results_dir, f"{metric.name}.pt"))
+                if ckpt_key not in metric_return[task].get(metric.name, {}):
+                    new_result = metric(clean_logits)
+                    if metric.name not in metric_return[task]:
+                        metric_return[task][metric.name] = {}
+                    metric_return[task][metric.name][ckpt_key] = new_result
 
-            processed_ckpts.add(ckpt)
-            with open(processed_ckpts_file, "w") as file:
-                file.write("\n".join(map(str, processed_ckpts)))
-
-        global_processed_ckpts.add(ckpt)
-        with open(global_processed_ckpts_file, "w") as file:
-            file.write("\n".join(map(str, global_processed_ckpts)))
+        # Save the metrics dictionary after processing the checkpoint
+        torch.save(metric_return, metrics_path)
 
     return metric_return
+
+
 
 # DEPRECATED
 # def get_chronological_circuit_data(
