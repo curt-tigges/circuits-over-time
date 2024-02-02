@@ -3,5 +3,6 @@
   "model_tl_name": "pythia-160m",
   "cache_dir": "model_cache",
   "checkpoint_schedule": "exp_plus_detail",
-  "batch_size": 70
+  "batch_size": 70,
+  "tasks": ["ioi", "greater_than", "sentiment_cont", "sentiment_class"]
 }

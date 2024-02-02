@@ -4,5 +4,7 @@
   "cache_dir": "model_cache",
   #"cache_dir": "/media/curttigges/project-files/projects/circuits",
   "checkpoint_schedule": "exp_plus_detail",
-  "batch_size": 10
+  "batch_size": 10,
+  "large_model": True,
+  "tasks": ["ioi", "greater_than", "sentiment_cont", "sentiment_class"]
 }
