@@ -19,7 +19,16 @@ from IPython.display import display
 
 from utils.model_utils import load_model, clear_gpu_memory
 from utils.data_utils import UniversalPatchingDataset
-from utils.metrics import CircuitMetric, compute_logit_diff, compute_probability_diff, compute_probability_mass, compute_rank_0_rate, compute_accuracy
+from utils.metrics import (
+    CircuitMetric, 
+    compute_logit_diff, 
+    compute_probability_diff, 
+    compute_probability_mass, 
+    compute_rank_0_rate, 
+    compute_accuracy,
+    compute_mean_reciprocal_rank,
+    compute_max_group_rank_reciprocal
+)
 from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate, CircuitMetric, get_logit_diff, ioi_metric
 
 from ACDCPP.acdcpp import get_acdcpp_results
@@ -346,7 +355,9 @@ def get_data_and_metrics(
         probability_diff = CircuitMetric("probability_diff", probability_diff_metric)
         probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions)
         probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
-        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass]
+        mrr_metric = partial(compute_mean_reciprocal_rank, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        mrr = CircuitMetric("mrr", mrr_metric)
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass, mrr]
 
     elif task_name == "greater_than":
         # Get data
@@ -379,7 +390,21 @@ def get_data_and_metrics(
             mode="groups"
         )
         accuracy = CircuitMetric("accuracy", accuracy_metric)
-        metrics = [logit_diff, probability_diff, probability_mass, accuracy]
+        mrr_metric = partial(
+            compute_mean_reciprocal_rank,
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="groups"
+        )
+        mrr = CircuitMetric("mrr", mrr_metric)
+        max_group_mrr_metric = partial(
+            compute_max_group_rank_reciprocal,
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="groups"
+        )
+        max_group_mrr = CircuitMetric("max_group_mrr", max_group_mrr_metric)
+        metrics = [logit_diff, probability_diff, probability_mass, accuracy, mrr, max_group_mrr]
 
     elif task_name == "sentiment_cont":
         # Get data
@@ -399,8 +424,14 @@ def get_data_and_metrics(
         
         probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
         probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
+
+        mrr_metric = partial(compute_mean_reciprocal_rank, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        mrr = CircuitMetric("mrr", mrr_metric)
+
+        max_group_mrr_metric = partial(compute_max_group_rank_reciprocal, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        max_group_mrr = CircuitMetric("max_group_mrr", max_group_mrr_metric)
         
-        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass]
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass, mrr, max_group_mrr]
 
     elif task_name == "sentiment_class":
         # Get data
@@ -420,8 +451,14 @@ def get_data_and_metrics(
         
         probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
         probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
+
+        mrr_metric = partial(compute_mean_reciprocal_rank, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        mrr = CircuitMetric("mrr", mrr_metric)
+
+        max_group_mrr_metric = partial(compute_max_group_rank_reciprocal, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        max_group_mrr = CircuitMetric("max_group_mrr", max_group_mrr_metric)
         
-        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass]
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass, mrr, max_group_mrr]
 
     elif task_name == "mood_sentiment":
         raise ValueError("Not yet implemented")
