@@ -259,9 +259,9 @@ class UniversalPatchingDataset():
         ds = load_from_disk("sst_zero_shot_balanced_EleutherAI_pythia-2.8b")
 
         # Turn all items in ['tokens'] into a single tensor
-        all_tokens = torch.cat([item['tokens'].unsqueeze(0) for item in ds], dim=0)
-        all_answers = torch.cat([item['answers'].unsqueeze(0) for item in ds], dim=0)
-        all_positions = torch.cat([item['final_pos_index'].unsqueeze(0) for item in ds], dim=0)
+        all_tokens = torch.cat([item['tokens'].unsqueeze(0) for item in ds], dim=0).to(device)
+        all_answers = torch.cat([item['answers'].unsqueeze(0) for item in ds], dim=0).to(device)
+        all_positions = torch.cat([item['final_pos_index'].unsqueeze(0) for item in ds], dim=0).to(device)
 
         return cls(all_tokens[:size], all_tokens[:size], all_answers[:size], 64, all_positions[:size])
         
