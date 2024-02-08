@@ -14,7 +14,7 @@ from jaxtyping import Float
 import einops
 from fancy_einsum import einsum
 
-from datasets import load_dataset
+from datasets import load_from_disk
 from transformers import pipeline
 import plotly.io as pio
 import plotly.express as px
@@ -240,5 +240,19 @@ class UniversalPatchingDataset():
         return cls(ds.clean_tokens, ds.corrupted_tokens, ds.answer_tokens, 28)
 
     @classmethod
+    def from_sst(cls, model, size: int = 1000):
+        ds = load_from_disk("sst_zero_shot_balanced_EleutherAI_pythia-2.8b")
+
+        # Turn all items in ['tokens'] into a single tensor
+        all_tokens = torch.cat([item['tokens'].unsqueeze(0) for item in ds], dim=0)
+        all_answers = torch.cat([item['answers'].unsqueeze(0) for item in ds], dim=0)
+        all_positions = torch.cat([item['final_pos_index'].unsqueeze(0) for item in ds], dim=0)
+
+        return cls(all_tokens[:size], all_tokens[:size], all_answers[:size], 64, all_positions[:size])
+        
+
+    @classmethod
     def from_mood_sentiment():
         pass
+
+    
