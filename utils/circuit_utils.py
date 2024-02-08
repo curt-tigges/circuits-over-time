@@ -457,6 +457,33 @@ def get_data_and_metrics(
         
         metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass, mrr, max_group_mrr]
 
+    elif task_name == "sst":
+        # Get data
+        ds = UniversalPatchingDataset.from_sst(model, 1000)
+        
+        logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, mode="simple")
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
+
+        accuracy_metric = partial(compute_accuracy, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="simple")
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
+        
+        rank_0_metric = partial(compute_rank_0_rate, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="simple")
+        rank_0 = CircuitMetric("rank_0", rank_0_metric)
+        
+        probability_diff_metric = partial(compute_probability_diff, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="simple")
+        probability_diff = CircuitMetric("probability_diff", probability_diff_metric)
+        
+        probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="simple")
+        probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
+
+        mrr_metric = partial(compute_mean_reciprocal_rank, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="simple")
+        mrr = CircuitMetric("mrr", mrr_metric)
+
+        max_group_mrr_metric = partial(compute_max_group_rank_reciprocal, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="simple")
+        max_group_mrr = CircuitMetric("max_group_mrr", max_group_mrr_metric)
+        
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass, mrr, max_group_mrr]
+
     elif task_name == "mood_sentiment":
         raise ValueError("Not yet implemented")
     
