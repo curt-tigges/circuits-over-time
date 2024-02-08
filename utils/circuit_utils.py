@@ -338,7 +338,7 @@ def get_data_and_metrics(
         model: HookedTransformer,
         task_name: str,
     ):
-    assert task_name in ["ioi", "greater_than", "sentiment_cont", "sentiment_class", "mood_sentiment"]
+    assert task_name in ["ioi", "greater_than", "sentiment_cont", "sentiment_class", "mood_sentiment", "sst"]
 
     if task_name == "ioi":
         ds = UniversalPatchingDataset.from_ioi(model, 70)
