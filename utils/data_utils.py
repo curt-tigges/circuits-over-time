@@ -211,6 +211,13 @@ class UniversalPatchingDataset():
         self.positions = positions # used for IOI
         self.group_flags = group_flags # used for greater_than, optional for others
 
+    def __len__(self):
+        return len(self.toks)
+    def __getitem__(self, idx):
+        position = -1 if self.positions is None else self.positions[idx]
+        group_flag = None if self.group_flags is None else self.group_flags[idx]
+        return self.toks[idx], self.flipped_toks[idx], self.answer_toks[idx], position, group_flag
+
     @classmethod
     def from_ioi(cls, model, size: int = 70):
         ioi_dataset, abc_dataset, _, _, _ = generate_data_and_caches(model, size, verbose=True)
