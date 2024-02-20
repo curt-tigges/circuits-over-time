@@ -17,23 +17,14 @@ from utils.metrics import (
     compute_logit_diff,
     compute_probability_diff,
 )
-#%%
-class EAPDataset(Dataset):
-    def __init__(self, ds: UniversalPatchingDataset):
-        self.ds = ds
-    def __len__(self):
-        return len(self.ds.toks)
-    def __getitem__(self, idx):
-        position = None if self.ds.positions is None else self.ds.positions[idx]
-        group_flag = None if self.ds.group_flags is None else self.ds.group_flags[idx]
-        return self.ds.toks[idx], self.ds.flipped_toks[idx], self.ds.answer_toks[idx], position, group_flag
-    
+#%%    
 def collate_fn(xs):
     toks, flipped_toks, answer_toks, positions, flags_tensor = zip(*xs)
     toks = torch.stack(toks)
     flipped_toks = torch.stack(flipped_toks)
     answer_toks = torch.stack(answer_toks)
     positions = torch.stack(positions)
+    #print(flags_tensor)
     flags_tensor = None if flags_tensor[0] is None else torch.stack(flags_tensor)
     return toks, flipped_toks, answer_toks, positions, flags_tensor
 
@@ -51,7 +42,7 @@ def get_data_and_metrics(
 
     elif task_name == "greater_than":
         # Get data
-        ds = UniversalPatchingDataset.from_greater_than(model, 1000)
+        ds = UniversalPatchingDataset.from_greater_than(model, 200)
         prob_diff_metric = partial(
             compute_probability_diff, 
             mode="group_sum"
@@ -91,7 +82,8 @@ model = HookedTransformer.from_pretrained(model_name,center_writing_weights=Fals
     device='cuda',
 )
 # %%
-ds, metric = get_data_and_metrics(model, 'ioi')
+task = 'ioi'
+ds, metric = get_data_and_metrics(model, task)
 model.cfg.use_split_qkv_input = True
 model.cfg.use_attn_result = True
 model.cfg.use_hook_mlp_in = True
@@ -100,13 +92,16 @@ graph = Graph.from_model(model)
 dataloader = DataLoader(ds, batch_size=batch_size, collate_fn=collate_fn)
 #%%
 baseline = evaluate_baseline(model, dataloader, metric).mean()
+print(baseline)
 # %%
-attribute(model, graph, dataloader, lambda *args: -metric(*args), integrated_gradients=30)
+attribute(model, graph, dataloader, lambda *args: -metric(*args))
 # %%
 graph.apply_greedy(400)
 graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
-results = evaluate_graph(model, graph, dataloader, metric)
+results = evaluate_graph(model, graph, dataloader, metric).mean()
+print(results)
+graph.to_json(f'graphs/{task}.json')
 # %%
 gz = graph.to_graphviz()
-gz.draw('images/ioi.png', prog='dot')
+gz.draw(f'images/{task}.png', prog='dot')
 # %%
