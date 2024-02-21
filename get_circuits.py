@@ -94,7 +94,7 @@ dataloader = DataLoader(ds, batch_size=batch_size, collate_fn=collate_fn)
 baseline = evaluate_baseline(model, dataloader, metric).mean()
 print(baseline)
 # %%
-attribute(model, graph, dataloader, lambda *args: -metric(*args))
+attribute(model, graph, dataloader, lambda *args: -metric(*args), integrated_gradients=30)
 # %%
 graph.apply_greedy(400)
 graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
