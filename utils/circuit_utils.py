@@ -325,101 +325,102 @@ def get_knockout_perf_drop(model, heads_to_ablate, clean_tokens, metric):
 
 
 # =========================== CIRCUITS OVER TIME ===========================
-def get_chronological_circuit_performance(
-    model_hf_name: str,
-    model_tl_name: str,
-    cache_dir: str,
-    ckpts: List[int],
-    clean_tokens: Tensor,
-    corrupted_tokens: Tensor,
-    dataset: IOIDataset,
-    max_seq_len: int,
-    batch_size: int = None,
-):
-    """Gets the performance of a model over time.
+# DEPRECATED
+# def get_chronological_circuit_performance(
+#     model_hf_name: str,
+#     model_tl_name: str,
+#     cache_dir: str,
+#     ckpts: List[int],
+#     clean_tokens: Tensor,
+#     corrupted_tokens: Tensor,
+#     dataset: IOIDataset,
+#     max_seq_len: int,
+#     batch_size: int = None,
+# ):
+#     """Gets the performance of a model over time.
 
-    Args:
-        model_hf_name (str): Model name in HuggingFace.
-        model_tl_name (str): Model name in TorchLayers.
-        cache_dir (str): Cache directory.
-        ckpts (List[int]): Checkpoints to evaluate.
-        clean_tokens (Tensor): Clean tokens.
-        corrupted_tokens (Tensor): Corrupted tokens.
-        answer_token_indices (Tensor): Answer token indices.
+#     Args:
+#         model_hf_name (str): Model name in HuggingFace.
+#         model_tl_name (str): Model name in TorchLayers.
+#         cache_dir (str): Cache directory.
+#         ckpts (List[int]): Checkpoints to evaluate.
+#         clean_tokens (Tensor): Clean tokens.
+#         corrupted_tokens (Tensor): Corrupted tokens.
+#         answer_token_indices (Tensor): Answer token indices.
 
-    Returns:
-        dict: Dictionary of performance over time.
-    """
-    logit_diff_vals = []
-    clean_ld_baselines = []
-    corrupted_ld_baselines = []
+#     Returns:
+#         dict: Dictionary of performance over time.
+#     """
+#     logit_diff_vals = []
+#     clean_ld_baselines = []
+#     corrupted_ld_baselines = []
 
-    accuracy_vals = []
-    clean_accuracy_baselines = []
-    corrupted_accuracy_baselines = []
+#     accuracy_vals = []
+#     clean_accuracy_baselines = []
+#     corrupted_accuracy_baselines = []
 
-    rank_0_rate_vals = []
-    clean_rank_0_rate_baselines = []
-    corrupted_rank_0_rate_baselines = []
+#     rank_0_rate_vals = []
+#     clean_rank_0_rate_baselines = []
+#     corrupted_rank_0_rate_baselines = []
 
-    get_logit_diff = partial(_logits_to_mean_logit_diff, ioi_dataset=dataset)
-    get_accuracy = partial(_logits_to_mean_accuracy, ioi_dataset=dataset)
-    get_rank_0_rate = partial(_logits_to_rank_0_rate, ioi_dataset=dataset)
+#     get_logit_diff = partial(_logits_to_mean_logit_diff, ioi_dataset=dataset)
+#     get_accuracy = partial(_logits_to_mean_accuracy, ioi_dataset=dataset)
+#     get_rank_0_rate = partial(_logits_to_rank_0_rate, ioi_dataset=dataset)
 
-    previous_model = None
+#     previous_model = None
 
-    for ckpt in ckpts:
+#     for ckpt in ckpts:
 
-        # Get model
-        if previous_model is not None:
-            clear_gpu_memory(previous_model)
+#         # Get model
+#         if previous_model is not None:
+#             clear_gpu_memory(previous_model)
 
-        print(f"Loading model for step {ckpt}...")
-        model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
+#         print(f"Loading model for step {ckpt}...")
+#         model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
 
-        # Get metric values
-        print("Getting metric values...")
-        if batch_size is None:
-            clean_logits = model(clean_tokens)
-            corrupted_logits = model(corrupted_tokens)
-        else:
-            clean_logits = run_with_batches(model, clean_tokens, batch_size, max_seq_len)
-            corrupted_logits = run_with_batches(model, corrupted_tokens, batch_size, max_seq_len)
+#         # Get metric values
+#         print("Getting metric values...")
+#         if batch_size is None:
+#             clean_logits = model(clean_tokens)
+#             corrupted_logits = model(corrupted_tokens)
+#         else:
+#             clean_logits = run_with_batches(model, clean_tokens, batch_size, max_seq_len)
+#             corrupted_logits = run_with_batches(model, corrupted_tokens, batch_size, max_seq_len)
 
-        clean_logit_diff = get_logit_diff(clean_logits)
-        corrupted_logit_diff = get_logit_diff(corrupted_logits)
-        clean_ld_baselines.append(clean_logit_diff)
-        corrupted_ld_baselines.append(corrupted_logit_diff)
-        print(f"Logit diff: {clean_logit_diff}")
-        logit_diff_vals.append(clean_logit_diff)
+#         clean_logit_diff = get_logit_diff(clean_logits)
+#         corrupted_logit_diff = get_logit_diff(corrupted_logits)
+#         clean_ld_baselines.append(clean_logit_diff)
+#         corrupted_ld_baselines.append(corrupted_logit_diff)
+#         print(f"Logit diff: {clean_logit_diff}")
+#         logit_diff_vals.append(clean_logit_diff)
 
-        clean_accuracy = get_accuracy(clean_logits)
-        corrupted_accuracy = get_accuracy(corrupted_logits)
-        clean_accuracy_baselines.append(clean_accuracy)
-        corrupted_accuracy_baselines.append(corrupted_accuracy)
-        print(f"Accuracy: {clean_accuracy}")
-        accuracy_vals.append(clean_accuracy)
+#         clean_accuracy = get_accuracy(clean_logits)
+#         corrupted_accuracy = get_accuracy(corrupted_logits)
+#         clean_accuracy_baselines.append(clean_accuracy)
+#         corrupted_accuracy_baselines.append(corrupted_accuracy)
+#         print(f"Accuracy: {clean_accuracy}")
+#         accuracy_vals.append(clean_accuracy)
 
-        clean_rank_0_rate = get_rank_0_rate(clean_logits)
-        corrupted_rank_0_rate = get_rank_0_rate(corrupted_logits)
-        clean_rank_0_rate_baselines.append(clean_rank_0_rate)
-        corrupted_rank_0_rate_baselines.append(corrupted_rank_0_rate)
-        print(f"Rank 0 rate: {clean_rank_0_rate}")
-        rank_0_rate_vals.append(clean_rank_0_rate)
+#         clean_rank_0_rate = get_rank_0_rate(clean_logits)
+#         corrupted_rank_0_rate = get_rank_0_rate(corrupted_logits)
+#         clean_rank_0_rate_baselines.append(clean_rank_0_rate)
+#         corrupted_rank_0_rate_baselines.append(corrupted_rank_0_rate)
+#         print(f"Rank 0 rate: {clean_rank_0_rate}")
+#         rank_0_rate_vals.append(clean_rank_0_rate)
 
-        previous_model = model
+#         previous_model = model
 
-    return {
-        "logit_diffs": torch.tensor(logit_diff_vals),
-        "ld_clean_baselines": torch.tensor(clean_ld_baselines),
-        "ld_corrupted_baselines": torch.tensor(corrupted_ld_baselines),
-        "accuracy_vals": torch.tensor(accuracy_vals),
-        "accuracy_clean_baselines": torch.tensor(clean_accuracy_baselines),
-        "accuracy_corrupted_baselines": torch.tensor(corrupted_accuracy_baselines),
-        "rank_0_rate_vals": torch.tensor(rank_0_rate_vals),
-        "rank_0_rate_clean_baselines": torch.tensor(clean_rank_0_rate_baselines),
-        "rank_0_rate_corrupted_baselines": torch.tensor(corrupted_rank_0_rate_baselines),
-    }
+#     return {
+#         "logit_diffs": torch.tensor(logit_diff_vals),
+#         "ld_clean_baselines": torch.tensor(clean_ld_baselines),
+#         "ld_corrupted_baselines": torch.tensor(corrupted_ld_baselines),
+#         "accuracy_vals": torch.tensor(accuracy_vals),
+#         "accuracy_clean_baselines": torch.tensor(clean_accuracy_baselines),
+#         "accuracy_corrupted_baselines": torch.tensor(corrupted_accuracy_baselines),
+#         "rank_0_rate_vals": torch.tensor(rank_0_rate_vals),
+#         "rank_0_rate_clean_baselines": torch.tensor(clean_rank_0_rate_baselines),
+#         "rank_0_rate_corrupted_baselines": torch.tensor(corrupted_rank_0_rate_baselines),
+#     }
 
 
 def get_chronological_circuit_performance_flexible(
@@ -427,10 +428,8 @@ def get_chronological_circuit_performance_flexible(
     model_tl_name: str,
     cache_dir: str,
     ckpts: List[int],
-    clean_tokens: Tensor,
-    corrupted_tokens: Tensor,
+    dataset: UniversalPatchingDataset,
     metrics: List[CircuitMetric],
-    max_seq_len: int,
     batch_size: int = None,
 ):
     """Gets the performance of a model over time.
@@ -465,10 +464,10 @@ def get_chronological_circuit_performance_flexible(
         # Get metric values
         print("Getting metric values...")
         if batch_size is None:
-            clean_logits = model(clean_tokens)
+            clean_logits = model(dataset.toks)
             #corrupted_logits = model(corrupted_tokens)
         else:
-            clean_logits = run_with_batches(model, clean_tokens, batch_size, max_seq_len)
+            clean_logits = run_with_batches(model, dataset.toks, batch_size, dataset.max_seq_len)
             #corrupted_logits = run_with_batches(model, corrupted_tokens, batch_size, max_seq_len)
 
         for metric in metrics:
@@ -502,6 +501,7 @@ def get_acdcpp_circuits(
         return get_acdcpp_results(model, clean_data, corrupted_data, batch_size, threshold, metric)
 
 
+<<<<<<< HEAD
 def get_chronological_circuit_data(
     model_name: str,
     cache_dir: str,
@@ -513,105 +513,127 @@ def get_chronological_circuit_data(
 ):
 
     """Extracts data from different circuit components over time.
+=======
+# DEPRECATED
+# def get_chronological_circuit_data(
+#     model_name: str,
+#     cache_dir: str,
+#     ckpts,
+#     circuit,
+#     clean_tokens,
+#     corrupted_tokens,
+#     answer_token_indices,
+# ):
+#     """Extracts data from different circuit components over time.
+>>>>>>> 8f81828f65348aacc8b31b62297bbc8f4b55c23b
 
-    Args:
-        model_hf_name (str): Model name in HuggingFace.
-        model_tl_name (str): Model name in TorchLayers.
-        cache_dir (str): Cache directory.
-        ckpts (List[int]): Checkpoints to evaluate.
-        circuit (dict): Circuit dictionary.
-        clean_tokens (Tensor): Clean tokens.
-        corrupted_tokens (Tensor): Corrupted tokens.
-        answer_token_indices (Tensor): Answer token indices.
+#     Args:
+#         model_hf_name (str): Model name in HuggingFace.
+#         model_tl_name (str): Model name in TorchLayers.
+#         cache_dir (str): Cache directory.
+#         ckpts (List[int]): Checkpoints to evaluate.
+#         circuit (dict): Circuit dictionary.
+#         clean_tokens (Tensor): Clean tokens.
+#         corrupted_tokens (Tensor): Corrupted tokens.
+#         answer_token_indices (Tensor): Answer token indices.
 
-    Returns:
-        dict: Dictionary of data over time.
-    """
-    logit_diff_vals = []
-    clean_ld_baselines = []
-    corrupted_ld_baselines = []
-    attn_head_vals = []
-    value_patch_vals = []
-    circuit_vals = {key: [] for key in circuit.keys()}
-    knockout_drops = {key: [] for key in circuit.keys()}
+#     Returns:
+#         dict: Dictionary of data over time.
+#     """
+#     logit_diff_vals = []
+#     clean_ld_baselines = []
+#     corrupted_ld_baselines = []
+#     attn_head_vals = []
+#     value_patch_vals = []
+#     circuit_vals = {key: [] for key in circuit.keys()}
+#     knockout_drops = {key: [] for key in circuit.keys()}
 
+<<<<<<< HEAD
 
     metric = partial(get_logit_diff, answer_token_indices=answer_token_indices)
+=======
+#     metric = partial(get_logit_diff, answer_token_indices=answer_token_indices)
+>>>>>>> 8f81828f65348aacc8b31b62297bbc8f4b55c23b
 
-    previous_model = None
+#     previous_model = None
 
-    for ckpt in ckpts:
+#     for ckpt in ckpts:
 
-        # Get model
-        if previous_model is not None:
-            clear_gpu_memory(previous_model)
+#         # Get model
+#         if previous_model is not None:
+#             clear_gpu_memory(previous_model)
 
+<<<<<<< HEAD
         print(f"Loading model for step {ckpt}...")
         model = load_model(model_name,model_name, f"step{ckpt}", cache_dir = cache_dir)
+=======
+#         print(f"Loading model for step {ckpt}...")
+#         model = load_model(model_name, f"step{ckpt}", cache_dir)
+>>>>>>> 8f81828f65348aacc8b31b62297bbc8f4b55c23b
 
-        # Get metric values (relative to final performance)
-        print("Getting metric values...")
-        clean_logits, clean_cache = model.run_with_cache(clean_tokens)
-        corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_tokens)
+#         # Get metric values (relative to final performance)
+#         print("Getting metric values...")
+#         clean_logits, clean_cache = model.run_with_cache(clean_tokens)
+#         corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_tokens)
 
-        clean_logit_diff = metric(clean_logits).item()
-        corrupted_logit_diff = metric(corrupted_logits).item()
+#         clean_logit_diff = metric(clean_logits).item()
+#         corrupted_logit_diff = metric(corrupted_logits).item()
 
-        clean_ld_baselines.append(clean_logit_diff)
-        corrupted_ld_baselines.append(corrupted_logit_diff)
+#         clean_ld_baselines.append(clean_logit_diff)
+#         corrupted_ld_baselines.append(corrupted_logit_diff)
 
-        logit_diff_vals.append(clean_logit_diff)
+#         logit_diff_vals.append(clean_logit_diff)
 
-        # Get attention pattern patching metrics
-        print("Getting attention pattern patching metrics...")
-        attn_head_out_all_pos_act_patch_results = (
-            patching.get_act_patch_attn_head_pattern_all_pos(
-                model, corrupted_tokens, clean_cache, metric
-            )
-        )
-        attn_head_vals.append(attn_head_out_all_pos_act_patch_results)
+#         # Get attention pattern patching metrics
+#         print("Getting attention pattern patching metrics...")
+#         attn_head_out_all_pos_act_patch_results = (
+#             patching.get_act_patch_attn_head_pattern_all_pos(
+#                 model, corrupted_tokens, clean_cache, metric
+#             )
+#         )
+#         attn_head_vals.append(attn_head_out_all_pos_act_patch_results)
 
-        # Get value patching metrics
-        print("Getting value patching metrics...")
-        value_patch_results = patching.get_act_patch_attn_head_v_all_pos(
-            model, corrupted_tokens, clean_cache, metric
-        )
-        value_patch_vals.append(value_patch_results)
+#         # Get value patching metrics
+#         print("Getting value patching metrics...")
+#         value_patch_results = patching.get_act_patch_attn_head_v_all_pos(
+#             model, corrupted_tokens, clean_cache, metric
+#         )
+#         value_patch_vals.append(value_patch_results)
 
-        # Get path patching metrics for specific circuit parts
-        for key in circuit.keys():
-            # Get path patching results
-            print(f"Getting path patching metrics for {key}...")
-            # TODO: Replace with Callum's patch patching code
-            path_patching_results = get_path_patching_results(
-                model,
-                clean_tokens,
-                corrupted_tokens,
-                metric,
-                clean_logit_diff,
-                circuit[key].heads,
-                receiver_type=circuit[key].receiver_type,
-                position=circuit[key].position,
-            )
-            circuit_vals[key].append(path_patching_results)
+#         # Get path patching metrics for specific circuit parts
+#         for key in circuit.keys():
+#             # Get path patching results
+#             print(f"Getting path patching metrics for {key}...")
+#             # TODO: Replace with Callum's patch patching code
+#             path_patching_results = get_path_patching_results(
+#                 model,
+#                 clean_tokens,
+#                 corrupted_tokens,
+#                 metric,
+#                 clean_logit_diff,
+#                 circuit[key].heads,
+#                 receiver_type=circuit[key].receiver_type,
+#                 position=circuit[key].position,
+#             )
+#             circuit_vals[key].append(path_patching_results)
 
-            # Get knockout performance drop
-            print(f"Getting knockout performance drop for {key}...")
-            knockout_drops[key].append(
-                get_knockout_perf_drop(model, circuit[key].heads, clean_tokens, metric)
-            )
+#             # Get knockout performance drop
+#             print(f"Getting knockout performance drop for {key}...")
+#             knockout_drops[key].append(
+#                 get_knockout_perf_drop(model, circuit[key].heads, clean_tokens, metric)
+#             )
 
-        previous_model = model
+#         previous_model = model
 
-    return {
-        "logit_diffs": torch.tensor(logit_diff_vals),
-        "clean_baselines": torch.tensor(clean_ld_baselines),
-        "corrupted_baselines": torch.tensor(corrupted_ld_baselines),
-        "attn_head_vals": torch.stack(attn_head_vals, dim=-1),
-        "value_patch_vals": torch.stack(value_patch_vals, dim=-1),
-        "circuit_vals": circuit_vals,
-        "knockout_drops": knockout_drops,
-    }
+#     return {
+#         "logit_diffs": torch.tensor(logit_diff_vals),
+#         "clean_baselines": torch.tensor(clean_ld_baselines),
+#         "corrupted_baselines": torch.tensor(corrupted_ld_baselines),
+#         "attn_head_vals": torch.stack(attn_head_vals, dim=-1),
+#         "value_patch_vals": torch.stack(value_patch_vals, dim=-1),
+#         "circuit_vals": circuit_vals,
+#         "knockout_drops": knockout_drops,
+#     }
 
 
 # =========================== COMPONENT SWAPPING ===========================
