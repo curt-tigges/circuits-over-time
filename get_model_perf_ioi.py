@@ -11,6 +11,7 @@ from torchtyping import TensorType as TT
 from utils.model_utils import load_model, clear_gpu_memory
 from utils.data_utils import generate_data_and_caches
 from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate
+from EAP-positional.graph import get_acdcpp_results
 
 import utils.circuit_utils as cu
 
@@ -109,6 +110,8 @@ def main(args):
         ckpts = [1, 2]
 
     # get values over time
+    get_acdcpp_results()
+
     results_dict = cu.get_chronological_circuit_performance(
         model_full_name,
         model_tl_full_name,

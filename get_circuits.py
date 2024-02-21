@@ -32,13 +32,15 @@ def collate_fn(xs):
 def get_data_and_metrics(
         model: HookedTransformer,
         task_name: str,
+        eap: True,
+        is_evaluate: False
     ):
     assert task_name in ["ioi", "greater_than", "sentiment_cont", "sentiment_class", "mood_sentiment"]
 
     if task_name == "ioi":
         ds = UniversalPatchingDataset.from_ioi(model, 70)
         logit_diff_metric = partial(compute_logit_diff,mode='simple')
-        metric = CircuitMetric("logit_diff", logit_diff_metric)
+        metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
 
     elif task_name == "greater_than":
         # Get data
@@ -47,25 +49,21 @@ def get_data_and_metrics(
             compute_probability_diff, 
             mode="group_sum"
         )
-        metric = CircuitMetric("prob_diff", prob_diff_metric)
+        metric = CircuitMetric("prob_diff", prob_diff_metric, eap = eap)
 
     elif task_name == "sentiment_cont":
         # Get data
         ds = UniversalPatchingDataset.from_sentiment(model, "cont")
         logit_diff_metric = partial(compute_logit_diff, mode="pairs")
-        metric = CircuitMetric("logit_diff", logit_diff_metric)
+        metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
 
     elif task_name == "sentiment_class":
         # Get data
         ds = UniversalPatchingDataset.from_sentiment(model, "class")
         logit_diff_metric = partial(compute_logit_diff,  mode="pairs")
-        metric = CircuitMetric("logit_diff", logit_diff_metric)
-        
-    def wrap_metric(metr):
-        def wrapped_fn(logits, clean_logits, label, positions, flags_tensor):
-            return metr(logits, label, positions, flags_tensor)
-        return wrapped_fn
-    return ds, wrap_metric(metric)
+        metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
+
+    return ds, metr
 #%%
 batch_size = 8
 model_name = 'pythia-160m'
