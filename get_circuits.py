@@ -32,8 +32,7 @@ def collate_fn(xs):
 def get_data_and_metrics(
         model: HookedTransformer,
         task_name: str,
-        eap: True,
-        is_evaluate: False
+        eap: bool=True,
     ):
     assert task_name in ["ioi", "greater_than", "sentiment_cont", "sentiment_class", "mood_sentiment"]
 
@@ -63,7 +62,7 @@ def get_data_and_metrics(
         logit_diff_metric = partial(compute_logit_diff,  mode="pairs")
         metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
 
-    return ds, metr
+    return ds, metric
 #%%
 batch_size = 8
 model_name = 'pythia-160m'
@@ -81,7 +80,7 @@ model = HookedTransformer.from_pretrained(model_name,center_writing_weights=Fals
 )
 # %%
 task = 'ioi'
-ds, metric = get_data_and_metrics(model, task)
+ds, metric = get_data_and_metrics(model, task, eap=True)
 model.cfg.use_split_qkv_input = True
 model.cfg.use_attn_result = True
 model.cfg.use_hook_mlp_in = True
@@ -92,7 +91,7 @@ dataloader = DataLoader(ds, batch_size=batch_size, collate_fn=collate_fn)
 baseline = evaluate_baseline(model, dataloader, metric).mean()
 print(baseline)
 # %%
-attribute(model, graph, dataloader, lambda *args: -metric(*args), integrated_gradients=30)
+attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
 # %%
 graph.apply_greedy(400)
 graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
