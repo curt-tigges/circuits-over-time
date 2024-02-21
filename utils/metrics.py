@@ -167,16 +167,22 @@ class CircuitMetric:
         Returns:
             function: Wrapped metric function.
     """
-    def __init__(self, name, metric_fn, normalization_fn=None):
-        self.name = name
-        self.metric_fn = metric_fn
-        self.normalization_fn = normalization_fn
 
-    def __call__(self, logits, *args, **kwargs):
+    def __init__(self, name, metric_fn, normalization_fn=None, eap=False):
+            self.name = name
+            self.metric_fn = metric_fn
+            self.normalization_fn = normalization_fn
+            self.eap = eap
+
+    def __call__(self, logits, *args, loss=False, **kwargs):
+        if self.eap:
+            if self.name != 'kl_divergence':
+                args = args[1:]
+
+        multiplier = -1 if loss and self.name != 'kl_divergence' else 1
         if self.normalization_fn is not None:
             return self.normalization_fn(logits, self.metric_fn, *args, **kwargs)
-        return self.metric_fn(logits, *args, **kwargs)
-    
+        return multiplier * self.metric_fn(logits, *args, **kwargs)
 
 def get_positional_logits(
         logits: Float[Tensor, "batch seq d_vocab"],

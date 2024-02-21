@@ -501,7 +501,6 @@ def get_acdcpp_circuits(
         return get_acdcpp_results(model, clean_data, corrupted_data, batch_size, threshold, metric)
 
 
-<<<<<<< HEAD
 def get_chronological_circuit_data(
     model_name: str,
     cache_dir: str,
@@ -513,19 +512,6 @@ def get_chronological_circuit_data(
 ):
 
     """Extracts data from different circuit components over time.
-=======
-# DEPRECATED
-# def get_chronological_circuit_data(
-#     model_name: str,
-#     cache_dir: str,
-#     ckpts,
-#     circuit,
-#     clean_tokens,
-#     corrupted_tokens,
-#     answer_token_indices,
-# ):
-#     """Extracts data from different circuit components over time.
->>>>>>> 8f81828f65348aacc8b31b62297bbc8f4b55c23b
 
 #     Args:
 #         model_hf_name (str): Model name in HuggingFace.
@@ -548,12 +534,8 @@ def get_chronological_circuit_data(
 #     circuit_vals = {key: [] for key in circuit.keys()}
 #     knockout_drops = {key: [] for key in circuit.keys()}
 
-<<<<<<< HEAD
 
     metric = partial(get_logit_diff, answer_token_indices=answer_token_indices)
-=======
-#     metric = partial(get_logit_diff, answer_token_indices=answer_token_indices)
->>>>>>> 8f81828f65348aacc8b31b62297bbc8f4b55c23b
 
 #     previous_model = None
 
@@ -563,13 +545,8 @@ def get_chronological_circuit_data(
 #         if previous_model is not None:
 #             clear_gpu_memory(previous_model)
 
-<<<<<<< HEAD
         print(f"Loading model for step {ckpt}...")
         model = load_model(model_name,model_name, f"step{ckpt}", cache_dir = cache_dir)
-=======
-#         print(f"Loading model for step {ckpt}...")
-#         model = load_model(model_name, f"step{ckpt}", cache_dir)
->>>>>>> 8f81828f65348aacc8b31b62297bbc8f4b55c23b
 
 #         # Get metric values (relative to final performance)
 #         print("Getting metric values...")
