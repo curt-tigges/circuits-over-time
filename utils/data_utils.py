@@ -215,7 +215,7 @@ class UniversalPatchingDataset():
         return len(self.toks)
     def __getitem__(self, idx):
         position = torch.tensor(-1) if self.positions is None else self.positions[idx]
-        group_flag = None if self.group_flags is None else self.group_flags[idx]
+        group_flag = torch.tensor(-1) if self.group_flags is None else self.group_flags[idx]
         return self.toks[idx], self.flipped_toks[idx], self.answer_toks[idx], position, group_flag
 
     @classmethod
