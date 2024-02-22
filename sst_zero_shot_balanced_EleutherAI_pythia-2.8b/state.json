@@ -1,0 +1,21 @@
+{
+  "_data_files": [
+    {
+      "filename": "data-00000-of-00001.arrow"
+    }
+  ],
+  "_fingerprint": "192623b6f8efcc2b",
+  "_format_columns": [
+    "answers",
+    "attention_mask",
+    "final_pos_index",
+    "has_token",
+    "label",
+    "positions",
+    "tokens"
+  ],
+  "_format_kwargs": {},
+  "_format_type": "torch",
+  "_output_all_columns": false,
+  "_split": null
+}
