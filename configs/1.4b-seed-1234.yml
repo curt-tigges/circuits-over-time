@@ -5,5 +5,5 @@
   "checkpoint_schedule": "exp_plus_detail",
   "batch_size": 20,
   "large_model": True,
-  "tasks": ["ioi", "greater_than", "sentiment_cont", "sentiment_class"]
+  "tasks": ["ioi", "greater_than", "sentiment_cont", "sentiment_class", "sst"]
 }
