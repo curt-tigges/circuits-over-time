@@ -20,26 +20,10 @@ from utils.metrics import (
 #%%    
 
 def collate_fn(batch):
-    # Initialize a dictionary to hold the batched data
-    batched_data = {}
-
-    # Iterate through the keys of the first item in the batch to set up the structure
+    batch_dict = {}
     for key in batch[0].keys():
-        batched_data[key] = []
-
-    # Iterate through each item in the batch and append the data to the corresponding lists
-    for item in batch:
-        for key in item.keys():
-            batched_data[key].append(item[key])
-
-    # Convert lists to tensors, handling optional tensors as needed
-    for key in batched_data.keys():
-        if batched_data[key]:  # Check if the list is not empty
-            batched_data[key] = torch.stack(batched_data[key])
-        else:
-            batched_data[key] = None
-
-    return batched_data
+        batch_dict[key] = torch.stack([item[key] for item in batch])
+    return batch_dict
 
 
 def get_data_and_metrics(
