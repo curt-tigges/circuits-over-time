@@ -18,15 +18,28 @@ from utils.metrics import (
     compute_probability_diff,
 )
 #%%    
-def collate_fn(xs):
-    toks, flipped_toks, answer_toks, positions, flags_tensor = zip(*xs)
-    toks = torch.stack(toks)
-    flipped_toks = torch.stack(flipped_toks)
-    answer_toks = torch.stack(answer_toks)
-    positions = torch.stack(positions)
-    #print(flags_tensor)
-    flags_tensor = None if flags_tensor[0] is None else torch.stack(flags_tensor)
-    return toks, flipped_toks, answer_toks, positions, flags_tensor
+
+def collate_fn(batch):
+    # Initialize a dictionary to hold the batched data
+    batched_data = {}
+
+    # Iterate through the keys of the first item in the batch to set up the structure
+    for key in batch[0].keys():
+        batched_data[key] = []
+
+    # Iterate through each item in the batch and append the data to the corresponding lists
+    for item in batch:
+        for key in item.keys():
+            batched_data[key].append(item[key])
+
+    # Convert lists to tensors, handling optional tensors as needed
+    for key in batched_data.keys():
+        if batched_data[key]:  # Check if the list is not empty
+            batched_data[key] = torch.stack(batched_data[key])
+        else:
+            batched_data[key] = None
+
+    return batched_data
 
 
 def get_data_and_metrics(
