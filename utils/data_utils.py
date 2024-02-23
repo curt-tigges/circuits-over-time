@@ -223,7 +223,7 @@ class UniversalPatchingDataset():
         if self.positions is not None:
             item['positions'] = self.positions[idx]
         if self.group_flags is not None:
-            item['group_flags'] = self.group_flags[idx]
+            item['flags_tensor'] = self.group_flags[idx]
         return item
 
     @classmethod
