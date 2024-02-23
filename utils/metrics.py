@@ -199,7 +199,8 @@ def get_positional_logits(
     """
     if positions is None:
         return logits[:, -1, :]
-    
+    print(type(positions))
+    print(positions)
     return logits[range(logits.size(0)), positions, :]
 
 
