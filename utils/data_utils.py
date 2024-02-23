@@ -215,16 +215,16 @@ class UniversalPatchingDataset():
         return len(self.toks)
     
     def __getitem__(self, idx):
-        data = {
+        item = {
             'toks': self.toks[idx],
             'flipped_toks': self.flipped_toks[idx],
             'answer_toks': self.answer_toks[idx]
         }
         if self.positions is not None:
-            data['positions'] = self.positions[idx]
+            item['positions'] = self.positions[idx]
         if self.group_flags is not None:
-            data['group_flags'] = self.group_flags[idx]
-        return data
+            item['group_flags'] = self.group_flags[idx]
+        return item
 
     @classmethod
     def from_ioi(cls, model, size: int = 70):
