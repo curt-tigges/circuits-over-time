@@ -87,6 +87,8 @@ def process_args():
         config = read_config(args.config)
         for key, value in config.items():
             setattr(args, key, value)
+    # Placeholder to revisit when we want to add different model seed variants
+    setattr(args, "canonical", True)
     return args
 
 
@@ -147,9 +149,9 @@ def get_data_and_metrics(
 #%%
 def main(args):
     print(f"Loading model for step {args.ckpt}...")
-    if args.large_model:
+    if args.large_model or args.canonical_model:
         print("Loading large model...")
-        # Assuming HookedTransformer is defined elsewhere
+   
         model = HookedTransformer.from_pretrained(
             args.model, 
             checkpoint_value=args.ckpt,
@@ -161,6 +163,7 @@ def main(args):
         )
     else:
         ckpt_key = f"step{args.ckpt}"
+        # TODO: Add support for different model seeds
         model = load_model(args.model, args.model, ckpt_key, args.cache_dir)
     model.cfg.use_split_qkv_input = True
     model.cfg.use_attn_result = True
