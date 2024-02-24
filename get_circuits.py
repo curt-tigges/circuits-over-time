@@ -154,7 +154,7 @@ def main(args):
    
         model = HookedTransformer.from_pretrained(
             args.model, 
-            checkpoint_value=args.ckpt,
+            checkpoint_value=int(args.ckpt),
             center_unembed=False,
             center_writing_weights=False,
             fold_ln=False,
@@ -194,3 +194,14 @@ if __name__ == "__main__":
     args = process_args()
     main(args)
 
+# %%
+# from transformer_lens import HookedTransformer
+# model = HookedTransformer.from_pretrained(
+#             'pythia-160m', 
+#             checkpoint_value=2,
+#             center_unembed=False,
+#             center_writing_weights=False,
+#             fold_ln=False,
+#             dtype=torch.bfloat16
+#         )
+# # %%
