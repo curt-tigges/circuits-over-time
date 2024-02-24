@@ -80,7 +80,7 @@ def read_config(config_path):
     return config
 
 
-def process_args(args):
+def process_args():
     # Returns a namespace of arguments either from a config file or from the command line
     args = get_args()
     if args.config is not None:
