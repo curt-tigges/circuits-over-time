@@ -177,7 +177,7 @@ def main(args):
     
     # Evaluate baseline and graph
     baseline = evaluate_baseline(model, dataloader, metric).mean()
-    print(baseline)
+    print(f"Baseline metric value for {args.task}: {baseline}")
     attribute(model, graph, dataloader, metric, integrated_gradients=30)
     graph.apply_greedy(400)
     graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
@@ -196,12 +196,20 @@ if __name__ == "__main__":
 
 # %%
 # from transformer_lens import HookedTransformer
+# # Set up for task 
+# task = "ioi"
+
 # model = HookedTransformer.from_pretrained(
 #             'pythia-160m', 
-#             checkpoint_value=2,
+#             #checkpoint_value=143000,
 #             center_unembed=False,
 #             center_writing_weights=False,
 #             fold_ln=False,
 #             dtype=torch.bfloat16
 #         )
-# # %%
+# ds, metric = get_data_and_metrics(model, task, eap=True)
+# graph = Graph.from_model(model)
+# dataloader = DataLoader(ds, batch_size=8, collate_fn=collate_fn)
+# baseline = evaluate_baseline(model, dataloader, metric).mean()
+# print(baseline)
+# %%
