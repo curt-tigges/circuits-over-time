@@ -88,7 +88,7 @@ def process_args():
         for key, value in config.items():
             setattr(args, key, value)
     # Placeholder to revisit when we want to add different model seed variants
-    setattr(args, "canonical", True)
+    setattr(args, "canonical_model", True)
     return args
 
 
