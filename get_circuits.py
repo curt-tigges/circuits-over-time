@@ -60,7 +60,7 @@ def get_args() -> argparse.Namespace:
         help="Whether to load a large model",
     )
     parser.add_argument(
-        "-c",
+        "-cp",
         "--ckpt",
         default=0,
         help="Checkpoint to load",
