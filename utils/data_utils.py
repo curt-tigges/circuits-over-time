@@ -228,7 +228,7 @@ class UniversalPatchingDataset():
 
     @classmethod
     def from_ioi(cls, model, size: int = 70):
-        ioi_dataset, abc_dataset, _, _, _ = generate_data_and_caches(model, size, verbose=True)
+        ioi_dataset, abc_dataset, _, _, _ = generate_data_and_caches(model, size, verbose=False)
         answer_tokens = torch.cat((torch.Tensor(ioi_dataset.io_tokenIDs).unsqueeze(1), torch.Tensor(ioi_dataset.s_tokenIDs).unsqueeze(1)), dim=1).to(device)
         answer_tokens = answer_tokens.long()
 
