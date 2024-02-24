@@ -62,7 +62,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument(
         "-cp",
         "--ckpt",
-        default=0,
+        default=143000,
         help="Checkpoint to load",
     )
     parser.add_argument(    
