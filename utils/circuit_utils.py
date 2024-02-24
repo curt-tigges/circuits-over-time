@@ -7,20 +7,28 @@ from torch import Tensor
 from typing import List, Optional, Union, Dict, Tuple
 from path_patching_cm.ioi_dataset import IOIDataset
 from torchtyping import TensorType as TT
-#from utils.path_patching import path_patch, get_path_patching_results
 
-from path_patching_cm import path_patching
+
 import transformer_lens.patching as patching
 from transformer_lens import HookedTransformer
+
 import plotly.graph_objs as go
 import torch
 import ipywidgets as widgets
 from IPython.display import display
 
 from utils.model_utils import load_model, clear_gpu_memory
-from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate, CircuitMetric, get_logit_diff, ioi_metric
-
-from ACDCPP.acdcpp import get_acdcpp_results
+from utils.data_utils import UniversalPatchingDataset
+from utils.metrics import (
+    CircuitMetric, 
+    compute_logit_diff, 
+    compute_probability_diff, 
+    compute_probability_mass, 
+    compute_rank_0_rate, 
+    compute_accuracy,
+    compute_mean_reciprocal_rank,
+    compute_max_group_rank_reciprocal
+)
 
 if torch.cuda.is_available():
     device = int(os.environ.get("LOCAL_RANK", 0))
@@ -197,58 +205,7 @@ def patch_head_vector(
     return orig_head_vector
 
 
-def get_path_patching_results(
-    model,
-    clean_tokens,
-    patch_tokens,
-    metric,
-    step_metric,
-    receiver_heads,
-    receiver_type="hook_q",
-    sender_heads=None,
-    position=-1,
-):
-    """Gets the path patching results for a given model.
 
-    Args:
-        model (nn.Module): Model to patch.
-        step_logit_diff (Tensor): Logit difference for the particular step/revision.
-        receiver_heads (List[Tuple[int, int]]): List of tuples of layer and head indices to patch.
-        receiver_type (str, optional): Type of receiver. Defaults to "hook_q".
-        sender_heads (List[Tuple[int, int]], optional): List of tuples of layer and head indices to patch. Defaults to None.
-        position (int, optional): Positions to patch. Defaults to -1.
-
-    Returns:
-        Tensor: Path patching results.
-    """
-    metric_delta_results = torch.zeros(
-        model.cfg.n_layers, model.cfg.n_heads, device="cuda:0"
-    )
-
-    for layer in range(model.cfg.n_layers):
-        for head_idx in range(model.cfg.n_heads):
-            pass_d_hooks = path_patching(
-                model=model,
-                patch_tokens=patch_tokens,
-                orig_tokens=clean_tokens,
-                sender_heads=[(layer, head_idx)],
-                receiver_hooks=[
-                    (f"blocks.{layer_idx}.attn.{receiver_type}", head_idx)
-                    for layer_idx, head_idx in receiver_heads
-                ],
-                positions=position,
-            )
-
-            
-
-            path_patched_logits = model.run_with_hooks(
-                clean_tokens, fwd_hooks=pass_d_hooks
-            )
-            patched_metric = metric(path_patched_logits)
-            metric_delta_results[layer, head_idx] = (
-                -(step_metric - patched_metric) / step_metric
-            )
-    return metric_delta_results
 
 
 def ablate_top_head_hook(
@@ -325,112 +282,173 @@ def get_knockout_perf_drop(model, heads_to_ablate, clean_tokens, metric):
 
 
 # =========================== CIRCUITS OVER TIME ===========================
-# DEPRECATED
-# def get_chronological_circuit_performance(
-#     model_hf_name: str,
-#     model_tl_name: str,
-#     cache_dir: str,
-#     ckpts: List[int],
-#     clean_tokens: Tensor,
-#     corrupted_tokens: Tensor,
-#     dataset: IOIDataset,
-#     max_seq_len: int,
-#     batch_size: int = None,
-# ):
-#     """Gets the performance of a model over time.
 
-#     Args:
-#         model_hf_name (str): Model name in HuggingFace.
-#         model_tl_name (str): Model name in TorchLayers.
-#         cache_dir (str): Cache directory.
-#         ckpts (List[int]): Checkpoints to evaluate.
-#         clean_tokens (Tensor): Clean tokens.
-#         corrupted_tokens (Tensor): Corrupted tokens.
-#         answer_token_indices (Tensor): Answer token indices.
+def get_data_and_metrics(
+        model: HookedTransformer,
+        task_name: str,
+    ):
+    assert task_name in ["ioi", "greater_than", "sentiment_cont", "sentiment_class", "mood_sentiment", "sst"]
 
-#     Returns:
-#         dict: Dictionary of performance over time.
-#     """
-#     logit_diff_vals = []
-#     clean_ld_baselines = []
-#     corrupted_ld_baselines = []
+    if task_name == "ioi":
+        ds = UniversalPatchingDataset.from_ioi(model, 70)
+        logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
+        accuracy_metric = partial(compute_accuracy, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
+        rank_0_metric = partial(compute_rank_0_rate, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        rank_0 = CircuitMetric("rank_0", rank_0_metric)
+        probability_diff_metric = partial(compute_probability_diff, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        probability_diff = CircuitMetric("probability_diff", probability_diff_metric)
+        probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
+        mrr_metric = partial(compute_mean_reciprocal_rank, answer_token_indices=ds.answer_toks, positions=ds.positions)
+        mrr = CircuitMetric("mrr", mrr_metric)
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass, mrr]
 
-#     accuracy_vals = []
-#     clean_accuracy_baselines = []
-#     corrupted_accuracy_baselines = []
+    elif task_name == "greater_than":
+        # Get data
+        ds = UniversalPatchingDataset.from_greater_than(model, 1000)
+        logit_diff_metric = partial(
+            compute_logit_diff, 
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags, 
+            mode="groups"
+        )
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
+        prob_diff_metric = partial(
+            compute_probability_diff, 
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="group_sum"
+        )
+        probability_diff = CircuitMetric("prob_diff", prob_diff_metric)
+        probability_mass_metric = partial(
+            compute_probability_mass,
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="group_sum"
+        )
+        probability_mass = CircuitMetric("prob_mass", probability_mass_metric)
+        accuracy_metric = partial(
+            compute_accuracy,
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="groups"
+        )
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
+        mrr_metric = partial(
+            compute_mean_reciprocal_rank,
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="groups"
+        )
+        mrr = CircuitMetric("mrr", mrr_metric)
+        max_group_mrr_metric = partial(
+            compute_max_group_rank_reciprocal,
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="groups"
+        )
+        max_group_mrr = CircuitMetric("max_group_mrr", max_group_mrr_metric)
+        metrics = [logit_diff, probability_diff, probability_mass, accuracy, mrr, max_group_mrr]
 
-#     rank_0_rate_vals = []
-#     clean_rank_0_rate_baselines = []
-#     corrupted_rank_0_rate_baselines = []
+    elif task_name == "sentiment_cont":
+        # Get data
+        ds = UniversalPatchingDataset.from_sentiment(model, "cont")
+        
+        logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, mode="pairs")
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
 
-#     get_logit_diff = partial(_logits_to_mean_logit_diff, ioi_dataset=dataset)
-#     get_accuracy = partial(_logits_to_mean_accuracy, ioi_dataset=dataset)
-#     get_rank_0_rate = partial(_logits_to_rank_0_rate, ioi_dataset=dataset)
+        accuracy_metric = partial(compute_accuracy, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
+        
+        rank_0_metric = partial(compute_rank_0_rate, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        rank_0 = CircuitMetric("rank_0", rank_0_metric)
+        
+        probability_diff_metric = partial(compute_probability_diff, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        probability_diff = CircuitMetric("probability_diff", probability_diff_metric)
+        
+        probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
 
-#     previous_model = None
+        mrr_metric = partial(compute_mean_reciprocal_rank, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        mrr = CircuitMetric("mrr", mrr_metric)
 
-#     for ckpt in ckpts:
+        max_group_mrr_metric = partial(compute_max_group_rank_reciprocal, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        max_group_mrr = CircuitMetric("max_group_mrr", max_group_mrr_metric)
+        
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass, mrr, max_group_mrr]
 
-#         # Get model
-#         if previous_model is not None:
-#             clear_gpu_memory(previous_model)
+    elif task_name == "sentiment_class":
+        # Get data
+        ds = UniversalPatchingDataset.from_sentiment(model, "class")
+        
+        logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, mode="pairs")
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
 
-#         print(f"Loading model for step {ckpt}...")
-#         model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
+        accuracy_metric = partial(compute_accuracy, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
+        
+        rank_0_metric = partial(compute_rank_0_rate, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        rank_0 = CircuitMetric("rank_0", rank_0_metric)
+        
+        probability_diff_metric = partial(compute_probability_diff, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        probability_diff = CircuitMetric("probability_diff", probability_diff_metric)
+        
+        probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
 
-#         # Get metric values
-#         print("Getting metric values...")
-#         if batch_size is None:
-#             clean_logits = model(clean_tokens)
-#             corrupted_logits = model(corrupted_tokens)
-#         else:
-#             clean_logits = run_with_batches(model, clean_tokens, batch_size, max_seq_len)
-#             corrupted_logits = run_with_batches(model, corrupted_tokens, batch_size, max_seq_len)
+        mrr_metric = partial(compute_mean_reciprocal_rank, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        mrr = CircuitMetric("mrr", mrr_metric)
 
-#         clean_logit_diff = get_logit_diff(clean_logits)
-#         corrupted_logit_diff = get_logit_diff(corrupted_logits)
-#         clean_ld_baselines.append(clean_logit_diff)
-#         corrupted_ld_baselines.append(corrupted_logit_diff)
-#         print(f"Logit diff: {clean_logit_diff}")
-#         logit_diff_vals.append(clean_logit_diff)
+        max_group_mrr_metric = partial(compute_max_group_rank_reciprocal, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="pairs")
+        max_group_mrr = CircuitMetric("max_group_mrr", max_group_mrr_metric)
+        
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass, mrr, max_group_mrr]
 
-#         clean_accuracy = get_accuracy(clean_logits)
-#         corrupted_accuracy = get_accuracy(corrupted_logits)
-#         clean_accuracy_baselines.append(clean_accuracy)
-#         corrupted_accuracy_baselines.append(corrupted_accuracy)
-#         print(f"Accuracy: {clean_accuracy}")
-#         accuracy_vals.append(clean_accuracy)
+    elif task_name == "sst":
+        # Get data
+        ds = UniversalPatchingDataset.from_sst(model, 1000)
+        
+        logit_diff_metric = partial(compute_logit_diff, answer_token_indices=ds.answer_toks, mode="simple")
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
 
-#         clean_rank_0_rate = get_rank_0_rate(clean_logits)
-#         corrupted_rank_0_rate = get_rank_0_rate(corrupted_logits)
-#         clean_rank_0_rate_baselines.append(clean_rank_0_rate)
-#         corrupted_rank_0_rate_baselines.append(corrupted_rank_0_rate)
-#         print(f"Rank 0 rate: {clean_rank_0_rate}")
-#         rank_0_rate_vals.append(clean_rank_0_rate)
+        accuracy_metric = partial(compute_accuracy, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="simple")
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
+        
+        rank_0_metric = partial(compute_rank_0_rate, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="simple")
+        rank_0 = CircuitMetric("rank_0", rank_0_metric)
+        
+        probability_diff_metric = partial(compute_probability_diff, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="simple")
+        probability_diff = CircuitMetric("probability_diff", probability_diff_metric)
+        
+        probability_mass_metric = partial(compute_probability_mass, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="simple")
+        probability_mass = CircuitMetric("probability_mass", probability_mass_metric)
 
-#         previous_model = model
+        mrr_metric = partial(compute_mean_reciprocal_rank, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="simple")
+        mrr = CircuitMetric("mrr", mrr_metric)
 
-#     return {
-#         "logit_diffs": torch.tensor(logit_diff_vals),
-#         "ld_clean_baselines": torch.tensor(clean_ld_baselines),
-#         "ld_corrupted_baselines": torch.tensor(corrupted_ld_baselines),
-#         "accuracy_vals": torch.tensor(accuracy_vals),
-#         "accuracy_clean_baselines": torch.tensor(clean_accuracy_baselines),
-#         "accuracy_corrupted_baselines": torch.tensor(corrupted_accuracy_baselines),
-#         "rank_0_rate_vals": torch.tensor(rank_0_rate_vals),
-#         "rank_0_rate_clean_baselines": torch.tensor(clean_rank_0_rate_baselines),
-#         "rank_0_rate_corrupted_baselines": torch.tensor(corrupted_rank_0_rate_baselines),
-#     }
+        max_group_mrr_metric = partial(compute_max_group_rank_reciprocal, answer_token_indices=ds.answer_toks, positions=ds.positions, mode="simple")
+        max_group_mrr = CircuitMetric("max_group_mrr", max_group_mrr_metric)
+        
+        metrics = [logit_diff, accuracy, rank_0, probability_diff, probability_mass, mrr, max_group_mrr]
+
+    elif task_name == "mood_sentiment":
+        raise ValueError("Not yet implemented")
+    
+    return ds, metrics
 
 
-def get_chronological_circuit_performance_flexible(
+
+def get_chronological_task_performance(
     model_hf_name: str,
     model_tl_name: str,
+    config,
     cache_dir: str,
     ckpts: List[int],
-    dataset: UniversalPatchingDataset,
-    metrics: List[CircuitMetric],
+    task: str = "ioi",
     batch_size: int = None,
+    large_model=False,
 ):
     """Gets the performance of a model over time.
 
@@ -439,178 +457,153 @@ def get_chronological_circuit_performance_flexible(
         model_tl_name (str): Model name in TorchLayers.
         cache_dir (str): Cache directory.
         ckpts (List[int]): Checkpoints to evaluate.
-        clean_tokens (Tensor): Clean tokens.
-        corrupted_tokens (Tensor): Corrupted tokens.
-        metrics (List[CircuitMetric]): List of CircuitMetric objects.
+        task (str): The task for evaluation.
         batch_size (int, optional): Batch size to use for inference. Defaults to None.
+        large_model (bool): Flag for loading large models.
 
     Returns:
         dict: Dictionary of performance over time.
     """
 
-    metric_return = {metric.name: [] for metric in metrics}
+    metric_return = {}
+    ds = None
+    metrics = None
 
-    previous_model = None
+    results_dir = f"results/{config['model_name']}-no-dropout/{task}"
+    os.makedirs(results_dir, exist_ok=True)
 
     for ckpt in ckpts:
-
-        # Get model
-        if previous_model is not None:
-            clear_gpu_memory(previous_model)
+        ckpt_key = f"step{ckpt}"
+        # Check if this checkpoint is already processed
+        if metric_return and all(ckpt_key in metric_return.get(metric.name, {}) for metric in metrics):
+            print(f"Checkpoint {ckpt} already processed. Skipping.")
+            continue
 
         print(f"Loading model for step {ckpt}...")
-        model = load_model(model_hf_name, model_tl_name, f"step{ckpt}", cache_dir)
+        if large_model:
+            print("Loading large model...")
+            # Assuming HookedTransformer is defined elsewhere
+            model = HookedTransformer.from_pretrained(
+                model_tl_name, 
+                checkpoint_value=ckpt,
+                center_unembed=True,
+                center_writing_weights=True,
+                fold_ln=True,
+                dtype=torch.bfloat16,
+                **{"cache_dir": cache_dir},
+            )
+        else:
+            # Assuming load_model function is defined elsewhere
+            model = load_model(model_hf_name, model_tl_name, ckpt_key, cache_dir)
+
+        # Load data and metrics if this is the first iteration
+        if not metrics:
+            ds, metrics = get_data_and_metrics(model, task)
+            metric_return = {metric.name: {} for metric in metrics}  # Initialize dict for each metric
 
         # Get metric values
         print("Getting metric values...")
         if batch_size is None:
-            clean_logits = model(dataset.toks)
-            #corrupted_logits = model(corrupted_tokens)
+            clean_logits = model(ds.toks)
         else:
-            clean_logits = run_with_batches(model, dataset.toks, batch_size, dataset.max_seq_len)
-            #corrupted_logits = run_with_batches(model, corrupted_tokens, batch_size, max_seq_len)
+            # Assuming run_with_batches is defined elsewhere
+            clean_logits = run_with_batches(model, ds.toks, batch_size, ds.max_seq_len)
 
+        # Update results in the dictionary
         for metric in metrics:
-            metric_return[metric.name].append(metric(clean_logits))
+            new_result = metric(clean_logits)
+            metric_return[metric.name][ckpt_key] = new_result
 
-        previous_model = model
+        # Save results after processing each checkpoint
+        torch.save(metric_return, os.path.join(results_dir, "metrics.pt"))
 
     return metric_return
 
-def get_acdcpp_circuits(
-    model_name: str,
+
+def get_chronological_multi_task_performance(
+    model_hf_name: str,
+    model_tl_name: str,
+    config,
     cache_dir: str,
-    clean_logit_diff,
-    corrupt_logit_diff,
-    ckpts,
-    clean_data,
-    corrupted_data,
-    threshold,
-    batch_size,
+    ckpts: List[int],
+    batch_size: int = None,
+    large_model=False,
 ):
-    previous_model = None
+    """Gets the performance of a model over time for multiple tasks.
+
+    Args:
+        model_hf_name (str): Model name in HuggingFace.
+        model_tl_name (str): Model name in TorchLayers.
+        config (dict): Configuration dictionary containing tasks.
+        cache_dir (str): Cache directory.
+        ckpts (List[int]): Checkpoints to evaluate.
+        batch_size (int, optional): Batch size to use for inference. Defaults to None.
+        large_model (bool, optional): Flag to indicate if the model is large. Defaults to False.
+
+    Returns:
+        dict: Dictionary of performance over time for each task.
+    """
+    global_results_dir = f"results/{config['model_name']}-no-dropout"
+    os.makedirs(global_results_dir, exist_ok=True)
+    metrics_path = os.path.join(global_results_dir, "metrics.pt")
+
+    # Load existing metrics dictionary or initialize it
+    if os.path.isfile(metrics_path):
+        metric_return = torch.load(metrics_path)
+    else:
+        metric_return = {task: {} for task in config["tasks"]}
 
     for ckpt in ckpts:
-        # Get model
-        if previous_model is not None:
-            clear_gpu_memory(previous_model)
+        ckpt_key = f"step{ckpt}"
+        process_this_checkpoint = False
+
+        # Check if this checkpoint needs processing
+        for task in config["tasks"]:
+            if metric_return[task] and all(ckpt_key in metric_return[task].get(metric, {}) for metric in metric_return[task]):
+                continue
+            else:
+                process_this_checkpoint = True
+                break
+
+        if not process_this_checkpoint:
+            print(f"Checkpoint {ckpt} has all tasks processed. Skipping.")
+            continue
 
         print(f"Loading model for step {ckpt}...")
-        model = load_model(model_name,model_name, f"step{ckpt}", cache_dir = cache_dir)
-        metric = partial(ioi_metric, clean_logit_diff = clean_logit_diff, corrupt_logit_diff = corrupt_logit_diff)
-        return get_acdcpp_results(model, clean_data, corrupted_data, batch_size, threshold, metric)
+        # Load the model
+        if large_model:
+            print("Loading large model...")
+            model = HookedTransformer.from_pretrained(
+                model_tl_name, 
+                checkpoint_value=ckpt,
+                center_unembed=True,
+                center_writing_weights=True,
+                fold_ln=True,
+                dtype=torch.bfloat16,
+                **{"cache_dir": cache_dir},
+            )
+        else:
+            model = load_model(model_hf_name, model_tl_name, ckpt_key, cache_dir)
 
+        for task in config["tasks"]:
+            ds, metrics = get_data_and_metrics(model, task)
+            if batch_size is None:
+                clean_logits = model(ds.toks)
+            else:
+                clean_logits = run_with_batches(model, ds.toks, batch_size, ds.max_seq_len)
 
-def get_chronological_circuit_data(
-    model_name: str,
-    cache_dir: str,
-    ckpts,
-    circuit,
-    clean_tokens,
-    corrupted_tokens,
-    answer_token_indices,
-):
+            for metric in metrics:
+                if ckpt_key not in metric_return[task].get(metric.name, {}):
+                    new_result = metric(clean_logits)
+                    if metric.name not in metric_return[task]:
+                        metric_return[task][metric.name] = {}
+                    metric_return[task][metric.name][ckpt_key] = new_result
 
-    """Extracts data from different circuit components over time.
+        # Save the metrics dictionary after processing the checkpoint
+        torch.save(metric_return, metrics_path)
 
-#     Args:
-#         model_hf_name (str): Model name in HuggingFace.
-#         model_tl_name (str): Model name in TorchLayers.
-#         cache_dir (str): Cache directory.
-#         ckpts (List[int]): Checkpoints to evaluate.
-#         circuit (dict): Circuit dictionary.
-#         clean_tokens (Tensor): Clean tokens.
-#         corrupted_tokens (Tensor): Corrupted tokens.
-#         answer_token_indices (Tensor): Answer token indices.
+    return metric_return
 
-#     Returns:
-#         dict: Dictionary of data over time.
-#     """
-#     logit_diff_vals = []
-#     clean_ld_baselines = []
-#     corrupted_ld_baselines = []
-#     attn_head_vals = []
-#     value_patch_vals = []
-#     circuit_vals = {key: [] for key in circuit.keys()}
-#     knockout_drops = {key: [] for key in circuit.keys()}
-
-
-    metric = partial(get_logit_diff, answer_token_indices=answer_token_indices)
-
-#     previous_model = None
-
-#     for ckpt in ckpts:
-
-#         # Get model
-#         if previous_model is not None:
-#             clear_gpu_memory(previous_model)
-
-        print(f"Loading model for step {ckpt}...")
-        model = load_model(model_name,model_name, f"step{ckpt}", cache_dir = cache_dir)
-
-#         # Get metric values (relative to final performance)
-#         print("Getting metric values...")
-#         clean_logits, clean_cache = model.run_with_cache(clean_tokens)
-#         corrupted_logits, corrupted_cache = model.run_with_cache(corrupted_tokens)
-
-#         clean_logit_diff = metric(clean_logits).item()
-#         corrupted_logit_diff = metric(corrupted_logits).item()
-
-#         clean_ld_baselines.append(clean_logit_diff)
-#         corrupted_ld_baselines.append(corrupted_logit_diff)
-
-#         logit_diff_vals.append(clean_logit_diff)
-
-#         # Get attention pattern patching metrics
-#         print("Getting attention pattern patching metrics...")
-#         attn_head_out_all_pos_act_patch_results = (
-#             patching.get_act_patch_attn_head_pattern_all_pos(
-#                 model, corrupted_tokens, clean_cache, metric
-#             )
-#         )
-#         attn_head_vals.append(attn_head_out_all_pos_act_patch_results)
-
-#         # Get value patching metrics
-#         print("Getting value patching metrics...")
-#         value_patch_results = patching.get_act_patch_attn_head_v_all_pos(
-#             model, corrupted_tokens, clean_cache, metric
-#         )
-#         value_patch_vals.append(value_patch_results)
-
-#         # Get path patching metrics for specific circuit parts
-#         for key in circuit.keys():
-#             # Get path patching results
-#             print(f"Getting path patching metrics for {key}...")
-#             # TODO: Replace with Callum's patch patching code
-#             path_patching_results = get_path_patching_results(
-#                 model,
-#                 clean_tokens,
-#                 corrupted_tokens,
-#                 metric,
-#                 clean_logit_diff,
-#                 circuit[key].heads,
-#                 receiver_type=circuit[key].receiver_type,
-#                 position=circuit[key].position,
-#             )
-#             circuit_vals[key].append(path_patching_results)
-
-#             # Get knockout performance drop
-#             print(f"Getting knockout performance drop for {key}...")
-#             knockout_drops[key].append(
-#                 get_knockout_perf_drop(model, circuit[key].heads, clean_tokens, metric)
-#             )
-
-#         previous_model = model
-
-#     return {
-#         "logit_diffs": torch.tensor(logit_diff_vals),
-#         "clean_baselines": torch.tensor(clean_ld_baselines),
-#         "corrupted_baselines": torch.tensor(corrupted_ld_baselines),
-#         "attn_head_vals": torch.stack(attn_head_vals, dim=-1),
-#         "value_patch_vals": torch.stack(value_patch_vals, dim=-1),
-#         "circuit_vals": circuit_vals,
-#         "knockout_drops": knockout_drops,
-#     }
 
 
 # =========================== COMPONENT SWAPPING ===========================

@@ -1,6 +1,7 @@
 #%%
 from functools import partial
 import argparse
+import yaml
 
 from transformer_lens import HookedTransformer
 import torch
@@ -20,8 +21,14 @@ from utils.metrics import (
 )
 #%%
 
-def get_args():
+def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download & assess model checkpoints")
+    parser.add_argument(
+        "-c",
+        "--config",
+        default=None,
+        help="Path to config file",
+    )
     parser.add_argument(
         "-t",
         "--task",
@@ -46,7 +53,41 @@ def get_args():
         default=8,
         help="Batch size for evaluation",
     )
-    return parser.parse_args()    
+    parser.add_argument(
+        "-l",
+        "--large_model",
+        default=False,
+        help="Whether to load a large model",
+    )
+    parser.add_argument(
+        "-c",
+        "--ckpt",
+        default=0,
+        help="Checkpoint to load",
+    )
+    parser.add_argument(    
+        "-cd",
+        "--cache_dir",
+        default="model_cache",
+        help="Directory for cache",
+    )   
+    return parser.parse_args()
+
+
+def read_config(config_path):
+    with open(config_path, "r") as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+    return config
+
+
+def process_args(args):
+    # Returns a namespace of arguments either from a config file or from the command line
+    args = get_args()
+    if args.config is not None:
+        config = read_config(args.config)
+        for key, value in config.items():
+            setattr(args, key, value)
+    return args
 
 
 def collate_fn(batch):
@@ -102,15 +143,25 @@ def get_data_and_metrics(
         metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
 
     return ds, metric
+
 #%%
 def main(args):
-    model = HookedTransformer.from_pretrained(
-        args.model,
-        center_writing_weights=False,
-        center_unembed=False,
-        fold_ln=False,
-        device='cuda',
-    )
+    print(f"Loading model for step {args.ckpt}...")
+    if args.large_model:
+        print("Loading large model...")
+        # Assuming HookedTransformer is defined elsewhere
+        model = HookedTransformer.from_pretrained(
+            args.model, 
+            checkpoint_value=args.ckpt,
+            center_unembed=False,
+            center_writing_weights=False,
+            fold_ln=False,
+            dtype=torch.bfloat16,
+            **{"cache_dir": args.cache_dir},
+        )
+    else:
+        ckpt_key = f"step{args.ckpt}"
+        model = load_model(args.model, args.model, ckpt_key, args.cache_dir)
     model.cfg.use_split_qkv_input = True
     model.cfg.use_attn_result = True
     model.cfg.use_hook_mlp_in = True
@@ -137,6 +188,6 @@ def main(args):
     return graph, results
 
 if __name__ == "__main__":
-    args = get_args()
+    args = process_args()
     main(args)
 
