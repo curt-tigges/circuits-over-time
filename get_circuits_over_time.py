@@ -61,10 +61,10 @@ def get_args() -> argparse.Namespace:
         help="Whether to load a large model",
     )
     parser.add_argument(
-        "-cp",
-        "--ckpt",
-        default=143000,
-        help="Checkpoint to load",
+        "-cs",
+        "--ckpt_schedule",
+        default="other",
+        help="Checkpoint schedule over which to iterate",
     )
     parser.add_argument(    
         "-cd",
@@ -99,11 +99,33 @@ def process_args():
     return args
 
 
+def get_ckpts(schedule):
+    if schedule == "linear":
+        ckpts = [i * 1000 for i in range(1, 144)]
+    elif schedule == "exponential":
+        ckpts = [
+            round((2**i) / 1000) * 1000 if 2**i > 1000 else 2**i
+            for i in range(18)
+        ]
+    elif schedule == "exp_plus_detail":
+        ckpts = (
+            [2**i for i in range(10)]
+            + [i * 1000 for i in range(1, 16)]
+            + [i * 5000 for i in range(3, 14)]
+            + [i * 10000 for i in range(7, 15)]
+        )
+    else:
+        ckpts = [1, 143000]
+
+    return ckpts
+
+
 def collate_fn(batch):
     batch_dict = {}
     for key in batch[0].keys():
         batch_dict[key] = torch.stack([item[key] for item in batch])
     return batch_dict
+
 
 def metric_mapper(metric_name):
     if metric_name == "logit_diff":
@@ -155,47 +177,52 @@ def get_data_and_metrics(
 
 #%%
 def main(args):
-    print(f"Loading model for step {args.ckpt}...")
-    if args.large_model or args.canonical_model:
-        model = HookedTransformer.from_pretrained(
-            args.model, 
-            checkpoint_value=int(args.ckpt),
-            center_unembed=False,
-            center_writing_weights=False,
-            fold_ln=False,
-            dtype=torch.bfloat16,
-            **{"cache_dir": args.cache_dir},
-        )
-    else:
-        ckpt_key = f"step{args.ckpt}"
-        # TODO: Add support for different model seeds
-        model = load_model(args.model, args.model, ckpt_key, args.cache_dir)
-    model.cfg.use_split_qkv_input = True
-    model.cfg.use_attn_result = True
-    model.cfg.use_hook_mlp_in = True
-    
-    # Set up for task 
-    task = args.task
-    ds, metric = get_data_and_metrics(model, task, eap=True)
-    graph = Graph.from_model(model)
-    dataloader = DataLoader(ds, batch_size=args.batch_size, collate_fn=collate_fn)
-    
-    # Evaluate baseline and graph
-    baseline = evaluate_baseline(model, dataloader, metric).mean()
-    print(f"Baseline metric value for {args.task}: {baseline}")
-    attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
-    graph.apply_greedy(args.top_n, absolute=True)
-    graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
-    results = evaluate_graph(model, graph, dataloader, metric).mean()
-    print(results)
 
-    # Save graph and results
-    os.makedirs(f"results/graphs/{args.model}/{task}", exist_ok=True)
-    os.makedirs(f"results/images/{args.model}/{task}", exist_ok=True)
-    graph.to_json(f'results/graphs/{args.model}/{task}/{args.ckpt}.json')
-    gz = graph.to_graphviz()
-    gz.draw(f'results/images/{args.model}/{task}/{args.ckpt}.png', prog='dot')
-    return graph, results
+    schedule = args.ckpt_schedule
+    ckpts = get_ckpts(schedule)
+
+    for ckpt in ckpts:
+
+        print(f"Loading model for step {ckpt}...")
+        if args.large_model or args.canonical_model:
+            model = HookedTransformer.from_pretrained(
+                args.model, 
+                checkpoint_value=int(ckpt),
+                center_unembed=False,
+                center_writing_weights=False,
+                fold_ln=False,
+                dtype=torch.bfloat16,
+                **{"cache_dir": args.cache_dir},
+            )
+        else:
+            ckpt_key = f"step{ckpt}"
+            # TODO: Add support for different model seeds
+            model = load_model(args.model, args.model, ckpt_key, args.cache_dir)
+        model.cfg.use_split_qkv_input = True
+        model.cfg.use_attn_result = True
+        model.cfg.use_hook_mlp_in = True
+        
+        # Set up for task 
+        task = args.task
+        ds, metric = get_data_and_metrics(model, task, eap=True)
+        graph = Graph.from_model(model)
+        dataloader = DataLoader(ds, batch_size=args.batch_size, collate_fn=collate_fn)
+        
+        # Evaluate baseline and graph
+        baseline = evaluate_baseline(model, dataloader, metric).mean()
+        print(f"Baseline metric value for {args.task}: {baseline}")
+        attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
+        graph.apply_greedy(args.top_n)
+        graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
+        results = evaluate_graph(model, graph, dataloader, metric).mean()
+        print(results)
+
+        # Save graph and results
+        os.makedirs(f"results/graphs/{args.model}/{task}", exist_ok=True)
+        os.makedirs(f"results/images/{args.model}/{task}", exist_ok=True)
+        graph.to_json(f'results/graphs/{args.model}/{task}/{ckpt}.json')
+        gz = graph.to_graphviz()
+        gz.draw(f'results/images/{args.model}/{task}/{ckpt}.png', prog='dot')
 
 if __name__ == "__main__":
     args = process_args()
