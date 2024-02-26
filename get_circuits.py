@@ -24,9 +24,13 @@ def collate_fn(xs):
     flipped_toks = torch.stack(flipped_toks)
     answer_toks = torch.stack(answer_toks)
     positions = torch.stack(positions)
-    #print(flags_tensor)
-    flags_tensor = None if flags_tensor[0] is None else torch.stack(flags_tensor)
-    return toks, flipped_toks, answer_toks, positions, flags_tensor
+    batch = {'toks': toks, 'flipped_toks': flipped_toks, 'answer_toks': answer_toks}
+    if not torch.all(positions == -1):
+        batch['positions'] = positions 
+    if not flags_tensor[0] is None:
+        batch["flags_tensor"] = torch.stack(flags_tensor)
+
+    return batch
 
 
 def get_data_and_metrics(
