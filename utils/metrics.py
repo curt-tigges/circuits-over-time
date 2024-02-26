@@ -233,6 +233,8 @@ def compute_logit_diff(
     Returns:
         torch.Tensor: Difference between the logits of the provided tokens.
     """
+    print(f"positions: {positions}")
+    print(f"flags_tensor: {flags_tensor}")
     logits = get_positional_logits(logits, positions)
     
     # Mode 1: Simple
