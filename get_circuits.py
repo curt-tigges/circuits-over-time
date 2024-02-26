@@ -150,8 +150,6 @@ def get_data_and_metrics(
 def main(args):
     print(f"Loading model for step {args.ckpt}...")
     if args.large_model or args.canonical_model:
-        print("Loading large model...")
-   
         model = HookedTransformer.from_pretrained(
             args.model, 
             checkpoint_value=int(args.ckpt),
