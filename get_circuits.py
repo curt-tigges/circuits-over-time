@@ -71,6 +71,12 @@ def get_args() -> argparse.Namespace:
         "--cache_dir",
         default="model_cache",
         help="Directory for cache",
+    )
+    parser.add_argument(
+        "-tn",
+        "--top_n",
+        default=400,
+        help="Number of edges to keep in the graph",
     )   
     return parser.parse_args()
 
@@ -178,17 +184,17 @@ def main(args):
     baseline = evaluate_baseline(model, dataloader, metric).mean()
     print(f"Baseline metric value for {args.task}: {baseline}")
     attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
-    graph.apply_greedy(400)
+    graph.apply_greedy(args.top_n)
     graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
     results = evaluate_graph(model, graph, dataloader, metric).mean()
     print(results)
 
     # Save graph and results
-    os.makedirs(f"results/graphs/{args.model}", exist_ok=True)
-    os.makedirs(f"results/images/{args.model}", exist_ok=True)
-    graph.to_json(f'results/graphs/{args.model}.json')
+    os.makedirs(f"results/graphs/{args.model}/{task}", exist_ok=True)
+    os.makedirs(f"results/images/{args.model}/{task}", exist_ok=True)
+    graph.to_json(f'results/graphs/{args.model}/{task}/{args.ckpt}.json')
     gz = graph.to_graphviz()
-    gz.draw(f'results/images/{args.model}/{task}.png', prog='dot')
+    gz.draw(f'results/images/{args.model}/{task}/{args.ckpt}.png', prog='dot')
     return graph, results
 
 if __name__ == "__main__":
