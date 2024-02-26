@@ -184,9 +184,9 @@ def main(args):
     print(results)
 
     # Save graph and results
-    os.makedirs(f"results/graphs/{args.model}/{task}", exist_ok=True)
-    os.makedirs(f"results/images/{args.model}/{task}", exist_ok=True)
-    graph.to_json(f'results/graphs/{args.model}/{task}.json')
+    os.makedirs(f"results/graphs/{args.model}", exist_ok=True)
+    os.makedirs(f"results/images/{args.model}", exist_ok=True)
+    graph.to_json(f'results/graphs/{args.model}.json')
     gz = graph.to_graphviz()
     gz.draw(f'results/images/{args.model}/{task}.png', prog='dot')
     return graph, results
