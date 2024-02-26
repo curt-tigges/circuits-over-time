@@ -143,19 +143,19 @@ model_full_name = f"EleutherAI/{model_name}"
 model_tl_full_name = f"EleutherAI/{model_tl_name}"
 
 if args.large_model or args.canonical_model:
-        model = HookedTransformer.from_pretrained(
-            args.model, 
-            checkpoint_value=int(args.ckpt),
-            center_unembed=False,
-            center_writing_weights=False,
-            fold_ln=False,
-            #dtype=torch.bfloat16,
-            **{"cache_dir": args.cache_dir},
-        )
-    else:
-        ckpt_key = f"step{args.ckpt}"
-        # TODO: Add support for different model seeds
-        model = load_model(args.model, args.model, ckpt_key, args.cache_dir)
+    model = HookedTransformer.from_pretrained(
+        args.model, 
+        checkpoint_value=int(args.ckpt),
+        center_unembed=False,
+        center_writing_weights=False,
+        fold_ln=False,
+        #dtype=torch.bfloat16,
+        **{"cache_dir": args.cache_dir},
+    )
+else:
+    ckpt_key = f"step{args.ckpt}"
+    # TODO: Add support for different model seeds
+    model = load_model(args.model, args.model, ckpt_key, args.cache_dir)
 model.cfg.use_split_qkv_input = True
 model.cfg.use_attn_result = True
 model.cfg.use_hook_mlp_in = True
