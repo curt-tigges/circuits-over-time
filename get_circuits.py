@@ -139,9 +139,6 @@ batch_size = args.batch_size
 model_name = args.model
 model_tl_name = args.model
 
-model_full_name = f"EleutherAI/{model_name}"
-model_tl_full_name = f"EleutherAI/{model_tl_name}"
-
 if args.large_model or args.canonical_model:
     model = HookedTransformer.from_pretrained(
         args.model, 
@@ -159,26 +156,25 @@ else:
 model.cfg.use_split_qkv_input = True
 model.cfg.use_attn_result = True
 model.cfg.use_hook_mlp_in = True
-# %%
+# Set up for task 
 task = args.task
 ds, metric = get_data_and_metrics(model, task, eap=True)
 graph = Graph.from_model(model)
-#%%
-dataloader = DataLoader(ds, batch_size=batch_size, collate_fn=collate_fn)
-#%%
+dataloader = DataLoader(ds, batch_size=args.batch_size, collate_fn=collate_fn)
+
+# Evaluate baseline and graph
 baseline = evaluate_baseline(model, dataloader, metric).mean()
-print(baseline)
-# %%
-attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
-# %%
+print(f"Baseline metric value for {args.task}: {baseline}")
+attribute(model, graph, dataloader, metric, integrated_gradients=30)
 graph.apply_greedy(400)
 graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
 results = evaluate_graph(model, graph, dataloader, metric).mean()
 print(results)
-os.makedirs(f"results/graphs/pythia-160m", exist_ok=True)
-os.makedirs(f"results/images/pythia-160m", exist_ok=True)
-graph.to_json(f'results/graphs/pythia-160m/{task}.json')
-# %%
+
+# Save graph and results
+os.makedirs(f"results/graphs/{args.model}", exist_ok=True)
+os.makedirs(f"results/images/{args.model}", exist_ok=True)
+graph.to_json(f'results/graphs/{args.model}.json')
 gz = graph.to_graphviz()
-gz.draw(f'results/images/pythia-160m/{task}.png', prog='dot')
+gz.draw(f'results/images/{args.model}/{task}.png', prog='dot')
 # %%
