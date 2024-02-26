@@ -482,7 +482,7 @@ def get_chronological_task_performance(
         print(f"Loading model for step {ckpt}...")
         if large_model:
             print("Loading large model...")
-            # Assuming HookedTransformer is defined elsewhere
+            
             model = HookedTransformer.from_pretrained(
                 model_tl_name, 
                 checkpoint_value=ckpt,
@@ -493,7 +493,7 @@ def get_chronological_task_performance(
                 **{"cache_dir": cache_dir},
             )
         else:
-            # Assuming load_model function is defined elsewhere
+            
             model = load_model(model_hf_name, model_tl_name, ckpt_key, cache_dir)
 
         # Load data and metrics if this is the first iteration
