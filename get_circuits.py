@@ -1,5 +1,6 @@
 #%%
 from functools import partial
+import os
 
 from transformer_lens import HookedTransformer
 import torch
@@ -101,8 +102,10 @@ graph.apply_greedy(400)
 graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
 results = evaluate_graph(model, graph, dataloader, metric).mean()
 print(results)
-graph.to_json(f'graphs/{task}.json')
+os.makedirs(f"results/graphs/pythia-160m", exist_ok=True)
+os.makedirs(f"results/images/pythia-160m", exist_ok=True)
+graph.to_json(f'results/graphs/pythia-160m/{task}.json')
 # %%
 gz = graph.to_graphviz()
-gz.draw(f'images/{task}.png', prog='dot')
+gz.draw(f'results/images/pythia-160m/{task}.png', prog='dot')
 # %%
