@@ -213,10 +213,18 @@ class UniversalPatchingDataset():
 
     def __len__(self):
         return len(self.toks)
+    
     def __getitem__(self, idx):
-        position = torch.tensor(-1) if self.positions is None else self.positions[idx]
-        group_flag = torch.tensor(-1) if self.group_flags is None else self.group_flags[idx]
-        return self.toks[idx], self.flipped_toks[idx], self.answer_toks[idx], position, group_flag
+        item = {
+            'toks': self.toks[idx],
+            'flipped_toks': self.flipped_toks[idx],
+            'answer_toks': self.answer_toks[idx]
+        }
+        if self.positions is not None:
+            item['positions'] = self.positions[idx]
+        if self.group_flags is not None:
+            item['flags_tensor'] = self.group_flags[idx]
+        return item
 
     @classmethod
     def from_ioi(cls, model, size: int = 70):
