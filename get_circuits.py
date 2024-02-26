@@ -2,6 +2,7 @@
 from functools import partial
 import argparse
 import yaml
+import os
 
 from transformer_lens import HookedTransformer
 import torch
@@ -183,6 +184,8 @@ def main(args):
     print(results)
 
     # Save graph and results
+    os.makedirs(f"graphs/{args.model}/{task}", exist_ok=True)
+    os.makedirs(f"images/{args.model}/{task}", exist_ok=True)
     graph.to_json(f'graphs/{task}.json')
     gz = graph.to_graphviz()
     gz.draw(f'images/{task}.png', prog='dot')
