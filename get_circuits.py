@@ -186,9 +186,9 @@ def main(args):
     # Save graph and results
     os.makedirs(f"results/graphs/{args.model}/{task}", exist_ok=True)
     os.makedirs(f"results/images/{args.model}/{task}", exist_ok=True)
-    graph.to_json(f'graphs/{task}.json')
+    graph.to_json(f'results/graphs/{args.model}/{task}.json')
     gz = graph.to_graphviz()
-    gz.draw(f'images/{task}.png', prog='dot')
+    gz.draw(f'results/images/{args.model}/{task}.png', prog='dot')
     return graph, results
 
 if __name__ == "__main__":
