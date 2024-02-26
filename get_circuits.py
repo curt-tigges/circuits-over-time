@@ -1,8 +1,8 @@
 #%%
 from functools import partial
-import os
 import argparse
 import yaml
+import os
 
 from transformer_lens import HookedTransformer
 import torch
@@ -21,6 +21,7 @@ from utils.metrics import (
     compute_probability_diff,
 )
 #%%
+
 def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download & assess model checkpoints")
     parser.add_argument(
@@ -98,6 +99,18 @@ def collate_fn(batch):
         batch_dict[key] = torch.stack([item[key] for item in batch])
     return batch_dict
 
+def metric_mapper(metric_name):
+    if metric_name == "logit_diff":
+        return compute_logit_diff
+    elif metric_name == "prob_diff":
+        return compute_probability_diff
+    #elif metric_name == "kl_div":
+    #    return compute_kl_divergence
+    #elif metric_name == "js_div":
+    #    return compute_js_divergence
+    else:
+        raise ValueError(f"Invalid metric name: {metric_name}")
+                         
 
 def get_data_and_metrics(
         model: HookedTransformer,
@@ -133,48 +146,71 @@ def get_data_and_metrics(
         metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
 
     return ds, metric
+
 #%%
-args = process_args()
-batch_size = args.batch_size
-model_name = args.model
-model_tl_name = args.model
+def main(args):
+    print(f"Loading model for step {args.ckpt}...")
+    if args.large_model or args.canonical_model:
+        model = HookedTransformer.from_pretrained(
+            args.model, 
+            checkpoint_value=int(args.ckpt),
+            center_unembed=False,
+            center_writing_weights=False,
+            fold_ln=False,
+            #dtype=torch.bfloat16,
+            **{"cache_dir": args.cache_dir},
+        )
+    else:
+        ckpt_key = f"step{args.ckpt}"
+        # TODO: Add support for different model seeds
+        model = load_model(args.model, args.model, ckpt_key, args.cache_dir)
+    model.cfg.use_split_qkv_input = True
+    model.cfg.use_attn_result = True
+    model.cfg.use_hook_mlp_in = True
+    
+    # Set up for task 
+    task = args.task
+    ds, metric = get_data_and_metrics(model, task, eap=True)
+    graph = Graph.from_model(model)
+    dataloader = DataLoader(ds, batch_size=args.batch_size, collate_fn=collate_fn)
+    
+    # Evaluate baseline and graph
+    baseline = evaluate_baseline(model, dataloader, metric).mean()
+    print(f"Baseline metric value for {args.task}: {baseline}")
+    attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
+    graph.apply_greedy(400)
+    graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
+    results = evaluate_graph(model, graph, dataloader, metric).mean()
+    print(results)
 
-if args.large_model or args.canonical_model:
-    model = HookedTransformer.from_pretrained(
-        args.model, 
-        checkpoint_value=int(args.ckpt),
-        center_unembed=False,
-        center_writing_weights=False,
-        fold_ln=False,
-        #dtype=torch.bfloat16,
-        **{"cache_dir": args.cache_dir},
-    )
-else:
-    ckpt_key = f"step{args.ckpt}"
-    # TODO: Add support for different model seeds
-    model = load_model(args.model, args.model, ckpt_key, args.cache_dir)
-model.cfg.use_split_qkv_input = True
-model.cfg.use_attn_result = True
-model.cfg.use_hook_mlp_in = True
-# Set up for task 
-task = args.task
-ds, metric = get_data_and_metrics(model, task, eap=True)
-graph = Graph.from_model(model)
-dataloader = DataLoader(ds, batch_size=args.batch_size, collate_fn=collate_fn)
+    # Save graph and results
+    os.makedirs(f"results/graphs/{args.model}", exist_ok=True)
+    os.makedirs(f"results/images/{args.model}", exist_ok=True)
+    graph.to_json(f'results/graphs/{args.model}.json')
+    gz = graph.to_graphviz()
+    gz.draw(f'results/images/{args.model}/{task}.png', prog='dot')
+    return graph, results
 
-# Evaluate baseline and graph
-baseline = evaluate_baseline(model, dataloader, metric).mean()
-print(f"Baseline metric value for {args.task}: {baseline}")
-attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
-graph.apply_greedy(400)
-graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
-results = evaluate_graph(model, graph, dataloader, metric).mean()
-print(results)
+if __name__ == "__main__":
+    args = process_args()
+    main(args)
 
-# Save graph and results
-os.makedirs(f"results/graphs/{args.model}", exist_ok=True)
-os.makedirs(f"results/images/{args.model}", exist_ok=True)
-graph.to_json(f'results/graphs/{args.model}.json')
-gz = graph.to_graphviz()
-gz.draw(f'results/images/{args.model}/{task}.png', prog='dot')
+# %%
+# from transformer_lens import HookedTransformer
+# # Set up for task 
+# task = "ioi"
+
+# model = HookedTransformer.from_pretrained(
+#             'pythia-160m', 
+#             #checkpoint_value=143000,
+#             center_unembed=False,
+#             center_writing_weights=False,
+#             fold_ln=False,
+#             dtype=torch.bfloat16
+#         )
+# ds, metric = get_data_and_metrics(model, task, eap=True)
+# graph = Graph.from_model(model)
+# dataloader = DataLoader(ds, batch_size=8, collate_fn=collate_fn)
+# baseline = evaluate_baseline(model, dataloader, metric).mean()
+# print(baseline)
 # %%
