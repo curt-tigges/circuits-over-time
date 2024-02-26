@@ -163,7 +163,7 @@ def main(args):
             center_unembed=False,
             center_writing_weights=False,
             fold_ln=False,
-            dtype=torch.float16,
+            dtype=torch.bfloat16,
             **{"cache_dir": args.cache_dir},
         )
     else:
