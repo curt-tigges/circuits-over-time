@@ -177,7 +177,7 @@ def get_data_and_metrics(
 
 #%%
 def main(args):
-
+    print(f"Arguments: {args}")
     schedule = args.ckpt_schedule
     ckpts = get_ckpts(schedule)
 
