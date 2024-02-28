@@ -7,19 +7,20 @@ from torch import Tensor
 from typing import List, Optional, Union, Dict, Tuple
 from path_patching_cm.ioi_dataset import IOIDataset
 from torchtyping import TensorType as TT
+#from utils.path_patching import path_patch, get_path_patching_results
 
-
+from path_patching_cm import path_patching
 import transformer_lens.patching as patching
 from transformer_lens import HookedTransformer
-
 import plotly.graph_objs as go
 import torch
 import ipywidgets as widgets
 from IPython.display import display
 
 from utils.model_utils import load_model, clear_gpu_memory
-from utils.data_utils import UniversalPatchingDataset
-from utils.metrics import CircuitMetric, compute_logit_diff, compute_probability_diff, compute_probability_mass, compute_rank_0_rate
+from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate, CircuitMetric, get_logit_diff, ioi_metric
+
+from ACDCPP.acdcpp import get_acdcpp_results
 
 if torch.cuda.is_available():
     device = int(os.environ.get("LOCAL_RANK", 0))
@@ -476,18 +477,41 @@ def get_chronological_circuit_performance_flexible(
 
     return metric_return
 
+def get_acdcpp_circuits(
+    model_name: str,
+    cache_dir: str,
+    clean_logit_diff,
+    corrupt_logit_diff,
+    ckpts,
+    clean_data,
+    corrupted_data,
+    threshold,
+    batch_size,
+):
+    previous_model = None
 
-# DEPRECATED
-# def get_chronological_circuit_data(
-#     model_name: str,
-#     cache_dir: str,
-#     ckpts,
-#     circuit,
-#     clean_tokens,
-#     corrupted_tokens,
-#     answer_token_indices,
-# ):
-#     """Extracts data from different circuit components over time.
+    for ckpt in ckpts:
+        # Get model
+        if previous_model is not None:
+            clear_gpu_memory(previous_model)
+
+        print(f"Loading model for step {ckpt}...")
+        model = load_model(model_name,model_name, f"step{ckpt}", cache_dir = cache_dir)
+        metric = partial(ioi_metric, clean_logit_diff = clean_logit_diff, corrupt_logit_diff = corrupt_logit_diff)
+        return get_acdcpp_results(model, clean_data, corrupted_data, batch_size, threshold, metric)
+
+
+def get_chronological_circuit_data(
+    model_name: str,
+    cache_dir: str,
+    ckpts,
+    circuit,
+    clean_tokens,
+    corrupted_tokens,
+    answer_token_indices,
+):
+
+    """Extracts data from different circuit components over time.
 
 #     Args:
 #         model_hf_name (str): Model name in HuggingFace.
@@ -510,7 +534,8 @@ def get_chronological_circuit_performance_flexible(
 #     circuit_vals = {key: [] for key in circuit.keys()}
 #     knockout_drops = {key: [] for key in circuit.keys()}
 
-#     metric = partial(get_logit_diff, answer_token_indices=answer_token_indices)
+
+    metric = partial(get_logit_diff, answer_token_indices=answer_token_indices)
 
 #     previous_model = None
 
@@ -520,8 +545,8 @@ def get_chronological_circuit_performance_flexible(
 #         if previous_model is not None:
 #             clear_gpu_memory(previous_model)
 
-#         print(f"Loading model for step {ckpt}...")
-#         model = load_model(model_name, f"step{ckpt}", cache_dir)
+        print(f"Loading model for step {ckpt}...")
+        model = load_model(model_name,model_name, f"step{ckpt}", cache_dir = cache_dir)
 
 #         # Get metric values (relative to final performance)
 #         print("Getting metric values...")
