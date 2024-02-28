@@ -47,25 +47,29 @@ def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
 
     print(cache_dir)
     # Download model from HuggingFace
-    source_model = AutoModelForCausalLM.from_pretrained(
-        model_hf_name, revision=revision, cache_dir=cache_dir
-    ).half()
+    #source_model = AutoModelForCausalLM.from_pretrained(
+    #    model_hf_name, revision=revision, cache_dir=cache_dir
+    #).half()
 
     # source_model.to("cpu")
 
     # Load model into TransformerLens
     model = HookedTransformer.from_pretrained(
         model_tl_name,
-        hf_model=source_model,
-        center_unembed=True,
-        center_writing_weights=True,
-        fold_ln=True,
+        #hf_model=source_model,
+        #center_unembed=True,
+        #center_writing_weights=True,
+        #fold_ln=True,
         # move_state_dict_to_device=False,
         # device="cpu",
     )
 
-    # model.cfg.device = device
-    # model.to(device)
+    model.cfg.use_split_qkv_input = True
+    model.cfg.use_attn_result = True
+    model.cfg.use_hook_mlp_in = True
+
+    model.cfg.device = device
+    model.to(device)
     #clear_gpu_memory(source_model)
 
     return model
@@ -97,11 +101,11 @@ def load_model_tl(model_tl_name, revision, cache_dir, fp16=False):
     # Load model into TransformerLens
     model = HookedTransformer.from_pretrained(
         model_tl_name,
-        center_unembed=True,
-        center_writing_weights=True,
-        fold_ln=True,
-        checkpoint_value=revision,
-        model_kwargs={"torch_dtype": "float16", "cache_dir": cache_dir},
+        #center_unembed=True,
+        #center_writing_weights=True,
+        #fold_ln=True,
+        #checkpoint_value=revision,
+        #model_kwargs={"torch_dtype": "float16", "cache_dir": cache_dir},
     )
 
     return model

@@ -143,24 +143,24 @@ def generate_data_and_caches(model: HookedTransformer, N: int, verbose: bool = F
 
     model.reset_hooks(including_permanent=True)
 
-    ioi_logits_original, ioi_cache = model.run_with_cache(ioi_dataset.toks)
-    abc_logits_original, abc_cache = model.run_with_cache(abc_dataset.toks)
+    #ioi_logits_original, ioi_cache = model.run_with_cache(ioi_dataset.toks)
+    #abc_logits_original, abc_cache = model.run_with_cache(abc_dataset.toks)
 
-    ioi_average_logit_diff = _logits_to_mean_logit_diff(ioi_logits_original, ioi_dataset).item()
-    abc_average_logit_diff = _logits_to_mean_logit_diff(abc_logits_original, ioi_dataset).item()
+    #ioi_average_logit_diff = _logits_to_mean_logit_diff(ioi_logits_original, ioi_dataset).item()
+    #abc_average_logit_diff = _logits_to_mean_logit_diff(abc_logits_original, ioi_dataset).item()
 
-    if verbose:
-        print(f"Average logit diff (IOI dataset): {ioi_average_logit_diff:.4f}")
-        print(f"Average logit diff (ABC dataset): {abc_average_logit_diff:.4f}")
+    #if verbose:
+    #    print(f"Average logit diff (IOI dataset): {ioi_average_logit_diff:.4f}")
+    #    print(f"Average logit diff (ABC dataset): {abc_average_logit_diff:.4f}")
 
-    ioi_metric_noising = partial(
-        _ioi_metric_noising,
-        clean_logit_diff=ioi_average_logit_diff,
-        corrupted_logit_diff=abc_average_logit_diff,
-        ioi_dataset=ioi_dataset,
-    )
+    # ioi_metric_noising = partial(
+    #     _ioi_metric_noising,
+    #     clean_logit_diff=ioi_average_logit_diff,
+    #     corrupted_logit_diff=abc_average_logit_diff,
+    #     ioi_dataset=ioi_dataset,
+    # )
 
-    return ioi_dataset, abc_dataset, ioi_cache, abc_cache, ioi_metric_noising
+    return ioi_dataset, abc_dataset #, ioi_cache, abc_cache, ioi_metric_noising
 
 
 def prepare_indices_for_prob_diff(tokenizer, years):
@@ -211,9 +211,24 @@ class UniversalPatchingDataset():
         self.positions = positions # used for IOI
         self.group_flags = group_flags # used for greater_than, optional for others
 
+    def __len__(self):
+        return len(self.toks)
+    
+    def __getitem__(self, idx):
+        item = {
+            'toks': self.toks[idx],
+            'flipped_toks': self.flipped_toks[idx],
+            'answer_toks': self.answer_toks[idx]
+        }
+        if self.positions is not None:
+            item['positions'] = self.positions[idx]
+        if self.group_flags is not None:
+            item['flags_tensor'] = self.group_flags[idx]
+        return item
+
     @classmethod
     def from_ioi(cls, model, size: int = 70):
-        ioi_dataset, abc_dataset, _, _, _ = generate_data_and_caches(model, size, verbose=True)
+        ioi_dataset, abc_dataset = generate_data_and_caches(model, size, verbose=True)
         answer_tokens = torch.cat((torch.Tensor(ioi_dataset.io_tokenIDs).unsqueeze(1), torch.Tensor(ioi_dataset.s_tokenIDs).unsqueeze(1)), dim=1).to(device)
         answer_tokens = answer_tokens.long()
 
