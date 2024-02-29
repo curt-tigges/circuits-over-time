@@ -2,6 +2,7 @@
 from functools import partial
 import argparse
 import yaml
+import json
 import os
 
 from transformer_lens import HookedTransformer
@@ -77,6 +78,12 @@ def get_args() -> argparse.Namespace:
         "--top_n",
         default=400,
         help="Number of edges to keep in the graph",
+    )
+    parser.add_argument(
+        "-v",
+        "--verify",
+        default=False,
+        help="Whether to get the faithfulness curve for the graph",
     )   
     return parser.parse_args()
 
@@ -175,6 +182,27 @@ def get_data_and_metrics(
 
     return ds, metric
 
+
+def get_faithfulness_metrics(
+        graph: Graph,
+        model: HookedTransformer, 
+        dataloader: DataLoader, 
+        metric: CircuitMetric,
+        baseline: float,
+        start: int = 100,
+        end: int = 1000,
+        step: int = 100,
+    ):
+
+    faithfulness = dict()
+
+    for size in range(start, end, step):
+        graph.apply_greedy(size, absolute=True)
+        graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
+        faithfulness[size] = (evaluate_graph(model, graph, dataloader, metric).mean() / baseline).item()
+
+    return faithfulness
+
 #%%
 def main(args):
     print(f"Arguments: {args}")
@@ -217,12 +245,24 @@ def main(args):
         results = evaluate_graph(model, graph, dataloader, metric).mean()
         print(results)
 
+
+        faithfulness = None
+
+        if args.verify:
+            faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline, start=25, end=1600, step=25)
+            print(faithfulness)
+
         # Save graph and results
         os.makedirs(f"results/graphs/{args.model}/{task}", exist_ok=True)
         os.makedirs(f"results/images/{args.model}/{task}", exist_ok=True)
+        os.makedirs(f"results/faithfulness/{args.model}/{task}", exist_ok=True)
         graph.to_json(f'results/graphs/{args.model}/{task}/{ckpt}.json')
         gz = graph.to_graphviz()
         gz.draw(f'results/images/{args.model}/{task}/{ckpt}.png', prog='dot')
+
+        if args.verify:
+            with open(f"results/faithfulness/{args.model}/{task}/{args.ckpt}.json", "w") as f:
+                json.dump(faithfulness, f)
 
 if __name__ == "__main__":
     args = process_args()

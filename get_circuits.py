@@ -2,6 +2,7 @@
 from functools import partial
 import argparse
 import yaml
+import json
 import os
 
 from transformer_lens import HookedTransformer
@@ -235,7 +236,7 @@ def main(args):
     if args.verify:
         # Save faithfulness to JSON
         with open(f"results/faithfulness/{args.model}/{task}/{args.ckpt}.json", "w") as f:
-            yaml.dump(faithfulness, f)
+            json.dump(faithfulness, f)
 if __name__ == "__main__":
     args = process_args()
     main(args)
