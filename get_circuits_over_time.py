@@ -85,6 +85,24 @@ def get_args() -> argparse.Namespace:
         default=False,
         help="Whether to get the faithfulness curve for the graph",
     )   
+    parser.add_argument(
+        "-strt",
+        "--start",
+        default=25,
+        help="Start point for faithfulness curve",
+    )
+    parser.add_argument(
+        "-end",
+        "--end",
+        default=1600,
+        help="End point for faithfulness curve",
+    )
+    parser.add_argument(
+        "-stp",
+        "--step",
+        default=25,
+        help="Step for faithfulness curve",
+    )
     return parser.parse_args()
 
 
@@ -239,19 +257,25 @@ def main(args):
         # Evaluate baseline and graph
         baseline = evaluate_baseline(model, dataloader, metric).mean()
         print(f"Baseline metric value for {args.task}: {baseline}")
+
+        faithfulness = dict()
+
+        if args.verify:
+            faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline, start=args.start, end=args.end, step=args.step)
+            
+            # Define the graph with this threshold
+            for size, value in faithfulness.items():
+                print(f"Size: {size}, Faithfulness: {value}")
+                if value > 0.8:
+                    args.top_n = size
+
+
         attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
         graph.apply_greedy(args.top_n)
         graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
         results = evaluate_graph(model, graph, dataloader, metric).mean()
         faithfulness[args.top_n] = (results / baseline).item()
         print(results)
-
-
-        faithfulness = dict()
-
-        if args.verify:
-            faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline, start=25, end=1600, step=25)
-            print(faithfulness)
 
         # Save graph and results
         os.makedirs(f"results/graphs/{args.model}/{task}", exist_ok=True)
