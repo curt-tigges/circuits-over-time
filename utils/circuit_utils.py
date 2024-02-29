@@ -29,9 +29,12 @@ from utils.metrics import (
     compute_mean_reciprocal_rank,
     compute_max_group_rank_reciprocal
 )
+<<<<<<< HEAD
 from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate, CircuitMetric, get_logit_diff, ioi_metric
 
 from ACDCPP.acdcpp import get_acdcpp_results
+=======
+>>>>>>> 311a34fdc8429907f678785254daee2376d84ee9
 
 if torch.cuda.is_available():
     device = int(os.environ.get("LOCAL_RANK", 0))
@@ -662,9 +665,100 @@ def get_chronological_task_performance(
         for metric in metrics:
             new_result = metric(clean_logits)
             metric_return[metric.name][ckpt_key] = new_result
+<<<<<<< HEAD
 
         # Save results after processing each checkpoint
         torch.save(metric_return, os.path.join(results_dir, "metrics.pt"))
+=======
+
+        # Save results after processing each checkpoint
+        torch.save(metric_return, os.path.join(results_dir, "metrics.pt"))
+
+    return metric_return
+
+
+def get_chronological_multi_task_performance(
+    model_hf_name: str,
+    model_tl_name: str,
+    config,
+    cache_dir: str,
+    ckpts: List[int],
+    batch_size: int = None,
+    large_model=False,
+):
+    """Gets the performance of a model over time for multiple tasks.
+
+    Args:
+        model_hf_name (str): Model name in HuggingFace.
+        model_tl_name (str): Model name in TorchLayers.
+        config (dict): Configuration dictionary containing tasks.
+        cache_dir (str): Cache directory.
+        ckpts (List[int]): Checkpoints to evaluate.
+        batch_size (int, optional): Batch size to use for inference. Defaults to None.
+        large_model (bool, optional): Flag to indicate if the model is large. Defaults to False.
+
+    Returns:
+        dict: Dictionary of performance over time for each task.
+    """
+    global_results_dir = f"results/{config['model_name']}-no-dropout"
+    os.makedirs(global_results_dir, exist_ok=True)
+    metrics_path = os.path.join(global_results_dir, "metrics.pt")
+
+    # Load existing metrics dictionary or initialize it
+    if os.path.isfile(metrics_path):
+        metric_return = torch.load(metrics_path)
+    else:
+        metric_return = {task: {} for task in config["tasks"]}
+
+    for ckpt in ckpts:
+        ckpt_key = f"step{ckpt}"
+        process_this_checkpoint = False
+
+        # Check if this checkpoint needs processing
+        for task in config["tasks"]:
+            if metric_return[task] and all(ckpt_key in metric_return[task].get(metric, {}) for metric in metric_return[task]):
+                continue
+            else:
+                process_this_checkpoint = True
+                break
+
+        if not process_this_checkpoint:
+            print(f"Checkpoint {ckpt} has all tasks processed. Skipping.")
+            continue
+
+        print(f"Loading model for step {ckpt}...")
+        # Load the model
+        if large_model:
+            print("Loading large model...")
+            model = HookedTransformer.from_pretrained(
+                model_tl_name, 
+                checkpoint_value=ckpt,
+                center_unembed=True,
+                center_writing_weights=True,
+                fold_ln=True,
+                dtype=torch.bfloat16,
+                **{"cache_dir": cache_dir},
+            )
+        else:
+            model = load_model(model_hf_name, model_tl_name, ckpt_key, cache_dir)
+
+        for task in config["tasks"]:
+            ds, metrics = get_data_and_metrics(model, task)
+            if batch_size is None:
+                clean_logits = model(ds.toks)
+            else:
+                clean_logits = run_with_batches(model, ds.toks, batch_size, ds.max_seq_len)
+
+            for metric in metrics:
+                if ckpt_key not in metric_return[task].get(metric.name, {}):
+                    new_result = metric(clean_logits)
+                    if metric.name not in metric_return[task]:
+                        metric_return[task][metric.name] = {}
+                    metric_return[task][metric.name][ckpt_key] = new_result
+
+        # Save the metrics dictionary after processing the checkpoint
+        torch.save(metric_return, metrics_path)
+>>>>>>> 311a34fdc8429907f678785254daee2376d84ee9
 
     return metric_return
 
@@ -775,6 +869,7 @@ def get_chronological_multi_task_performance(
         torch.save(metric_return, metrics_path)
 
     return metric_return
+
 
 
 
