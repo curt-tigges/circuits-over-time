@@ -215,9 +215,6 @@ def get_faithfulness_metrics(
     faithfulness = dict()
 
     for size in range(start, end, step):
-        print(f"Size: {size}")
-        print(f"Size type: {type(size)}")
-        print(f"Baseline: {baseline}")
 
         graph.apply_greedy(size, absolute=True)
         graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
@@ -261,11 +258,12 @@ def main(args):
         # Evaluate baseline and graph
         baseline = evaluate_baseline(model, dataloader, metric).mean()
         print(f"Baseline metric value for {args.task}: {baseline}")
+        attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
 
         faithfulness = dict()
 
         if args.verify:
-            faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline) #, start=args.start, end=args.end, step=args.step)
+            faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline, start=args.start, end=args.end, step=args.step)
             
             # Define the graph with this threshold
             for size, value in faithfulness.items():
@@ -273,8 +271,6 @@ def main(args):
                 if value > 0.8:
                     args.top_n = int(size)
 
-
-        attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
         graph.apply_greedy(args.top_n)
         graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
         results = evaluate_graph(model, graph, dataloader, metric).mean()
