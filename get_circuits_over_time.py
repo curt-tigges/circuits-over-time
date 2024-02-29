@@ -265,7 +265,7 @@ def main(args):
         faithfulness = dict()
 
         if args.verify:
-            faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline, start=args.start, end=args.end, step=args.step)
+            faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline) #, start=args.start, end=args.end, step=args.step)
             
             # Define the graph with this threshold
             for size, value in faithfulness.items():
