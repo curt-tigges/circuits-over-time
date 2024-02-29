@@ -268,10 +268,15 @@ def main(args):
             # Define the graph with this threshold
             for size, value in faithfulness.items():
                 print(f"Size: {size}, Faithfulness: {value}")
+                exceeds_threshold = False
                 if value > 0.8:
+                    exceeds_threshold = True
                     args.top_n = int(size)
 
-        graph.apply_greedy(args.top_n)
+            if not exceeds_threshold:
+                args.top_n = 1600
+
+        graph.apply_greedy(args.top_n, absolute=True)
         graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
         results = evaluate_graph(model, graph, dataloader, metric).mean()
         faithfulness[args.top_n] = (results / baseline).item()
