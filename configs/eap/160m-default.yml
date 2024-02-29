@@ -10,4 +10,6 @@
   "start": 25,
   "end": 1600,
   "step": 25,
+  "overwrite": True,
+  "search_type": "linear",
 }

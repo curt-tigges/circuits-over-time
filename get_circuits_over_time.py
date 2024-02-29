@@ -103,6 +103,18 @@ def get_args() -> argparse.Namespace:
         default=25,
         help="Step for faithfulness curve",
     )
+    parser.add_argument(
+        "-o",
+        "--overwrite",
+        default=False,
+        help="Whether to overwrite existing results",
+    )
+    parser.add_argument(
+        "-st",
+        "--search_type",
+        default="linear",
+        help="Search type for faithfulness curve; can be linear or binary",
+    )
     return parser.parse_args()
 
 
@@ -207,6 +219,7 @@ def get_faithfulness_metrics(
         dataloader: DataLoader, 
         metric: CircuitMetric,
         baseline: float,
+        target_minimum: float = 0.8,
         start: int = 100,
         end: int = 1000,
         step: int = 100,
@@ -220,7 +233,57 @@ def get_faithfulness_metrics(
         graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
         faithfulness[size] = (evaluate_graph(model, graph, dataloader, metric).mean() / baseline).item()
 
-    return faithfulness
+    # Define the graph with this threshold
+    for size in range(start, end, step):
+        print(f"Size: {size}, Faithfulness: {faithfulness[size]}")
+        exceeds_threshold = False
+        if faithfulness[size] > target_minimum:
+            exceeds_threshold = True
+            min_size = int(size)
+            print(f"Exceeds threshold: {min_size}")
+            break
+
+    if not exceeds_threshold:
+        min_size = end
+
+    return faithfulness, min_size
+
+def get_faithfulness_metrics_binary_search(
+        graph: Graph,
+        model: HookedTransformer, 
+        dataloader: DataLoader, 
+        metric: CircuitMetric,
+        baseline: float,
+        target_minimum: float = 0.8,
+        start: int = 100,
+        end: int = 1000,
+    ):
+    
+    def evaluate_size(size: int) -> float:
+        if size not in faithfulness:
+            graph.apply_greedy(size, absolute=True)
+            graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
+            faithfulness[size] = (evaluate_graph(model, graph, dataloader, metric).mean() / baseline).item()
+        return faithfulness[size]
+    
+    faithfulness = dict()
+    low = start
+    high = end
+    min_size = None
+    while low <= high:
+        mid = (low + high) // 2
+        if evaluate_size(mid) >= target_minimum:
+            min_size = mid
+            high = mid - 1
+        else:
+            low = mid + 1
+    
+    if min_size is None:
+        return faithfulness, end  # No size found that meets the target_minimum
+    
+    # Return the faithfulness metrics for sizes up to the minimal size found
+    return faithfulness, min_size
+
 
 #%%
 def main(args):
@@ -229,6 +292,10 @@ def main(args):
     ckpts = get_ckpts(schedule)
 
     for ckpt in ckpts:
+        # first check if graph json already exists
+        if os.path.exists(f"results/graphs/{args.model}/{args.task}/{ckpt}.json"):
+            if not args.overwrite:
+                continue
 
         print(f"Loading model for step {ckpt}...")
         if args.large_model or args.canonical_model:
@@ -263,18 +330,14 @@ def main(args):
         faithfulness = dict()
 
         if args.verify:
-            faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline, start=args.start, end=args.end, step=args.step)
+            if args.search_type == "linear":
+                search_fn = get_faithfulness_metrics
+            elif args.search_type == "binary":
+                search_fn = get_faithfulness_metrics_binary_search
             
-            # Define the graph with this threshold
-            for size, value in faithfulness.items():
-                print(f"Size: {size}, Faithfulness: {value}")
-                exceeds_threshold = False
-                if value > 0.8:
-                    exceeds_threshold = True
-                    args.top_n = int(size)
-
-            if not exceeds_threshold:
-                args.top_n = 1600
+            faithfulness, args.top_n = search_fn(graph, model, dataloader, metric, baseline, start=args.start, end=args.end, step=args.step)
+            
+            
 
         graph.apply_greedy(args.top_n, absolute=True)
         graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
