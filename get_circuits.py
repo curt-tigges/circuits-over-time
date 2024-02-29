@@ -164,6 +164,7 @@ def get_faithfulness_metrics(
         model: HookedTransformer, 
         dataloader: DataLoader, 
         metric: CircuitMetric,
+        baseline: float,
         start: int = 100,
         end: int = 1000,
         step: int = 100,
@@ -174,7 +175,7 @@ def get_faithfulness_metrics(
     for size in range(start, end, step):
         graph.apply_greedy(size, absolute=True)
         graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
-        faithfulness[size] = evaluate_graph(model, graph, dataloader, metric).mean()
+        faithfulness[size] = evaluate_graph(model, graph, dataloader, metric).mean() / baseline
 
     return faithfulness
 
@@ -213,14 +214,14 @@ def main(args):
     faithfulness = None
 
     if args.verify:
-        faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric)
+        faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline, start=100, end=1500, step=50)
         print(faithfulness)
 
     # Get default graph and faithfulness
     graph.apply_greedy(args.top_n, absolute=True)
     graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
     results = evaluate_graph(model, graph, dataloader, metric).mean()
-    faithfulness[args.top_n] = results
+    faithfulness[args.top_n] = results / baseline
     print(results)
 
     # Save graph and results
