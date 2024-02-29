@@ -215,6 +215,10 @@ def get_faithfulness_metrics(
     faithfulness = dict()
 
     for size in range(start, end, step):
+        print(f"Size: {size}")
+        print(f"Size type: {type(size)}")
+        print(f"Baseline: {baseline}")
+
         graph.apply_greedy(size, absolute=True)
         graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
         faithfulness[size] = (evaluate_graph(model, graph, dataloader, metric).mean() / baseline).item()
