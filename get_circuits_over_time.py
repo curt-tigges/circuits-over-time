@@ -140,7 +140,7 @@ def get_ckpts(schedule):
             + [i * 10000 for i in range(7, 15)]
         )
     else:
-        ckpts = [1, 143000]
+        ckpts = [10000, 143000]
 
     return ckpts
 
