@@ -233,9 +233,9 @@ def main(args):
     gz = graph.to_graphviz()
     gz.draw(f'results/images/{args.model}/{task}/{args.ckpt}.png', prog='dot')
     if args.verify:
-        with open(f'results/faithfulness/{args.model}/{task}/{args.ckpt}.yaml', 'w') as file:
-            yaml.dump(faithfulness, file)
-
+        # Save faithfulness to JSON
+        with open(f"results/faithfulness/{args.model}/{task}/{args.ckpt}.json", "w") as f:
+            yaml.dump(faithfulness, f)
 if __name__ == "__main__":
     args = process_args()
     main(args)
