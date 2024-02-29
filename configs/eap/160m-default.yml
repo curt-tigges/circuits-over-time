@@ -4,7 +4,7 @@
   "batch_size": 32,
   "ckpt": 143000,
   "top_n": 100,
-  "ckpt_schedule": "exp_plus_detail",
+  "ckpt_schedule": "late_start_exp_plus_detail",
   "cache_dir": "model_cache",
   "verify": True,
   "start": 25,
