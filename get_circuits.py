@@ -133,6 +133,7 @@ def get_data_and_metrics(
 
     if task_name == "ioi":
         ds = UniversalPatchingDataset.from_ioi(model, 70)
+        #kld_metric = partial(kl_div
         logit_diff_metric = partial(compute_logit_diff,mode='simple')
         metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
 
@@ -173,7 +174,7 @@ def get_faithfulness_metrics(
     faithfulness = dict()
 
     for size in range(start, end, step):
-        graph.apply_greedy(size, absolute=False)
+        graph.apply_greedy(size, absolute=True)
         graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
         faithfulness[size] = (evaluate_graph(model, graph, dataloader, metric).mean() / baseline).item()
 
@@ -214,7 +215,7 @@ def main(args):
     faithfulness = None
 
     if args.verify:
-        faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline, start=100, end=1500, step=50)
+        faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline, start=25, end=1600, step=25)
         print(faithfulness)
 
     # Get default graph and faithfulness
