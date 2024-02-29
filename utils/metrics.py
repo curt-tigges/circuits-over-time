@@ -459,6 +459,131 @@ def compute_rank_0_rate(
     return rank_0_rate.mean()
 
 
+def compute_mean_reciprocal_rank(
+        logits: torch.Tensor, 
+        answer_token_indices: torch.Tensor,
+        positions: torch.Tensor = None,
+        flags_tensor: torch.Tensor = None,
+        mode="simple"
+) -> torch.Tensor:
+    """
+    Computes the Mean Reciprocal Rank (MRR) for each item in the batch.
+
+    Args:
+        logits (torch.Tensor): Logits to use.
+        answer_token_indices (torch.Tensor): Indices of the correct answer tokens.
+        positions (torch.Tensor): Positions to get logits at, one position per batch item.
+        flags_tensor (torch.Tensor): Flags indicating the grouping of tokens (used in "groups" mode).
+        mode (str): Mode of operation - "simple", "pairs", or "groups".
+
+    Returns:
+        torch.Tensor: The Mean Reciprocal Rank for the batch.
+    """
+    logits = get_positional_logits(logits, positions)
+    probabilities = torch.softmax(logits, dim=-1)
+    mrr = torch.zeros(logits.size(0), device=logits.device)
+
+    # Mode 1: Simple
+    if mode == "simple":
+        correct_indices = answer_token_indices[:, 0]
+        for i in range(logits.size(0)):
+            sorted_indices = probabilities[i].sort(descending=True)[1]
+            rank = (sorted_indices == correct_indices[i]).nonzero(as_tuple=True)[0].item() + 1
+            mrr[i] = 1.0 / rank
+
+    # Mode 2: Pairs
+    elif mode == "pairs":
+        for i in range(logits.size(0)):
+            for pair in answer_token_indices[i]:
+                sorted_indices = probabilities[i].sort(descending=True)[1]
+                rank = (sorted_indices == pair[0]).nonzero(as_tuple=True)[0].item() + 1
+                mrr[i] += 1.0 / rank
+            mrr[i] /= answer_token_indices.size(1)
+
+    # Mode 3: Groups
+    elif mode == "groups":
+        assert flags_tensor is not None
+        for i in range(logits.size(0)):
+            selected_probs = probabilities[i, answer_token_indices[i]]
+            sorted_indices = selected_probs.sort(descending=True)[1]
+            correct_ranks = (flags_tensor[i] == 1).nonzero(as_tuple=True)[0]
+            ranks = torch.tensor([sorted_indices.tolist().index(rank.item()) + 1 for rank in correct_ranks])
+            mrr[i] = (1.0 / ranks).mean()
+
+    else:
+        raise ValueError("Invalid mode specified")
+
+    return mrr.mean()
+
+def compute_max_group_rank_reciprocal(
+        logits: torch.Tensor, 
+        answer_token_indices: torch.Tensor,
+        positions: torch.Tensor = None,
+        flags_tensor: torch.Tensor = None,
+        mode="simple"
+) -> torch.Tensor:
+    """
+    Computes the mean of the reciprocal of the maximum rank of members of the correct group across different modes.
+
+    Args:
+        logits (torch.Tensor): Logits to use.
+        answer_token_indices (torch.Tensor): Indices of the tokens for comparison or grouping.
+        positions (torch.Tensor): Positions to get logits at, one position per batch item.
+        flags_tensor (torch.Tensor): Flags indicating the grouping of tokens (used in "groups" mode).
+        mode (str): Operation mode - "simple", "pairs", or "groups".
+
+    Returns:
+        torch.Tensor: The mean of the reciprocal of the maximum rank of correct group members.
+    """
+    logits = get_positional_logits(logits, positions)
+    probabilities = torch.softmax(logits, dim=-1)
+    batch_size = logits.size(0)
+
+    # Initialize tensor to hold the reciprocal of the maximum rank for each item in the batch
+    reciprocal_max_rank = torch.zeros(batch_size, device=logits.device)
+
+    if mode == "simple":
+        for i in range(batch_size):
+            correct_index = answer_token_indices[i, 0]
+            sorted_indices = probabilities[i].sort(descending=True)[1]
+            rank = (sorted_indices == correct_index).nonzero(as_tuple=True)[0].item() + 1
+            reciprocal_max_rank[i] = 1.0 / rank
+
+    elif mode == "pairs":
+        for i in range(batch_size):
+            pair_ranks = []
+            for pair in answer_token_indices[i]:
+                # Only consider the first index in each pair as correct
+                correct_index = pair[0]
+                sorted_indices = probabilities[i].sort(descending=True)[1]
+                rank = (sorted_indices == correct_index).nonzero(as_tuple=True)[0].item() + 1
+                pair_ranks.append(rank)
+            # Use the max rank from pairs
+            max_rank = min(pair_ranks)
+            reciprocal_max_rank[i] = 1.0 / max_rank
+
+    elif mode == "groups":
+        for i in range(batch_size):
+            group_ranks = []
+            for j, flag in enumerate(flags_tensor[i]):
+                if flag == 1:  # Correct group member
+                    correct_index = answer_token_indices[i, j]
+                    sorted_indices = probabilities[i].sort(descending=True)[1]
+                    rank = (sorted_indices == correct_index).nonzero(as_tuple=True)[0].item() + 1
+                    group_ranks.append(rank)
+            # Use the max rank from correct group members
+            if group_ranks:
+                max_rank = min(group_ranks)
+                reciprocal_max_rank[i] = 1.0 / max_rank
+            else:
+                reciprocal_max_rank[i] = 0  # Handle case with no correct answers
+
+    else:
+        raise ValueError("Invalid mode specified")
+
+    return reciprocal_max_rank.mean()
+
+
 def compute_accuracy(
         logits: torch.Tensor,
         answer_token_indices: torch.Tensor,
