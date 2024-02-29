@@ -267,7 +267,7 @@ def main(args):
             for size, value in faithfulness.items():
                 print(f"Size: {size}, Faithfulness: {value}")
                 if value > 0.8:
-                    args.top_n = size
+                    args.top_n = int(size)
 
 
         attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
