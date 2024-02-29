@@ -247,7 +247,7 @@ def main(args):
         print(results)
 
 
-        faithfulness = None
+        faithfulness = dict()
 
         if args.verify:
             faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline, start=25, end=1600, step=25)
