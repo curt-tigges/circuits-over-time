@@ -213,7 +213,7 @@ def main(args):
     print(f"Baseline metric value for {args.task}: {baseline}")
     attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
 
-    faithfulness = None
+    faithfulness = dict()
 
     if args.verify:
         faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline, start=25, end=1600, step=25)
