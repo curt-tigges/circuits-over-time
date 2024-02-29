@@ -243,6 +243,7 @@ def main(args):
         graph.apply_greedy(args.top_n)
         graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
         results = evaluate_graph(model, graph, dataloader, metric).mean()
+        faithfulness[args.top_n] = (results / baseline).item()
         print(results)
 
 
