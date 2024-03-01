@@ -276,6 +276,7 @@ def get_faithfulness_metrics_adaptive(
     faithfulness = dict()
     step = initial_step
     size = start
+    exceeds_threshold = False
 
     while size < end:
         graph.apply_greedy(size, absolute=True)
@@ -285,13 +286,14 @@ def get_faithfulness_metrics_adaptive(
         print(f"Size: {size}, Faithfulness: {score}")
 
         if score > target_minimum:
+            exceeds_threshold = True
             print(f"Exceeds threshold at size: {size}")
             min_size = size
             step = initial_step
             #break
 
         # Adapt the step size
-        if size + step >= end or score > target_minimum * 0.75:  # Adjust the condition as needed
+        if not exceeds_threshold and score > target_minimum * 0.75:  # Adjust the condition as needed
             step = max(min_step, int(step * step_reduction_factor))
 
         size += step
