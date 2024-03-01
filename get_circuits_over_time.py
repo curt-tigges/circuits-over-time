@@ -340,6 +340,7 @@ def get_faithfulness_metrics_binary_search(
             graph.apply_greedy(size, absolute=True)
             graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
             faithfulness[size] = (evaluate_graph(model, graph, dataloader, metric).mean() / baseline).item()
+            print(f"Size: {size}, Faithfulness: {faithfulness[size]}, Exceeds threshold: {faithfulness[size]>=threshold}")
         return faithfulness[size]
     
     print(f"Entering binary search")
