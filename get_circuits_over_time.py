@@ -365,8 +365,8 @@ def main(args):
 
         if args.verify:
         # Save faithfulness to JSON
-            print(f"Saving faithfulness to JSON for {args.model} and {task}...")
             with open(f"results/faithfulness/{args.model}/{task}/{args.ckpt}.json", "w") as f:
+                print(f"Saving faithfulness to JSON for {args.model} and {task} to {args.ckpt}.json...")
                 json.dump(faithfulness, f)
 
 if __name__ == "__main__":
