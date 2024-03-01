@@ -316,7 +316,7 @@ def get_faithfulness_metrics_adaptive(
 
         print(f"Size: {size}, Faithfulness: {score}, Exceeds threshold: {exceeds_threshold}")
 
-        if step < initial_step and score < threshold * 0.75:
+        if step < initial_step and not exceeds_threshold and (score < threshold * 0.75 or score < faithfulness[size - step]):
             step = max(initial_step, int(step / step_reduction_factor))
             print(f"Resetting step size at size: {size} to {step}")
 
