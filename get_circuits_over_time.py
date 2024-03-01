@@ -342,12 +342,14 @@ def get_faithfulness_metrics_binary_search(
             faithfulness[size] = (evaluate_graph(model, graph, dataloader, metric).mean() / baseline).item()
         return faithfulness[size]
     
+    print(f"Entering binary search")
     faithfulness = dict()
     low = start
     high = end
     min_size = None
     while low <= high:
         mid = (low + high) // 2
+        print(f"Low: {low}, High: {high}, Mid: {mid}")
         if evaluate_size(mid) >= threshold:
             min_size = mid
             high = mid - 1
