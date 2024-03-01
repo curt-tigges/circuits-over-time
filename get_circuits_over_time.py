@@ -272,6 +272,7 @@ def get_faithfulness_metrics_adaptive(
     initial_step: int = 25,
     step_reduction_factor: float = 0.5,  # Factor by which to reduce the step size
     min_step: int = 1,  # Minimum step size
+    local_search_radius: int = 5,  # Radius for local linear search around the middle element
 ):
     faithfulness = dict()
     step = initial_step
@@ -285,26 +286,25 @@ def get_faithfulness_metrics_adaptive(
         score = (evaluate_graph(model, graph, dataloader, metric).mean() / baseline).item()
         faithfulness[size] = score
         
-
-        if score > threshold and exceeds_threshold == False:
+        if score > threshold and not exceeds_threshold:
             exceeds_threshold = True
-            #print(f"Exceeds threshold at size: {size}")
-            binary_faithfulness, min_size = get_faithfulness_metrics_binary_search(
+            # Perform a binary search with local linear search to handle noise
+            binary_faithfulness, min_size = get_faithfulness_metrics_binary_search_with_local_search(
                 graph, 
                 model, 
                 dataloader, 
                 metric, 
                 baseline, 
                 threshold, 
-                start = max(size - step, 1), 
-                end = size
+                start=max(size - step, 1), 
+                end=size,
+                local_search_radius=local_search_radius
             )
             step = initial_step * 2
 
             # Add faithfulness metrics from binary search
             for k, v in binary_faithfulness.items():
                 faithfulness[k] = v
-            #break
 
         print(f"Size: {size}, Faithfulness: {score}, Exceeds threshold: {exceeds_threshold}")
 
@@ -313,7 +313,7 @@ def get_faithfulness_metrics_adaptive(
             print(f"Resetting step size at size: {size} to {step}")
 
         # Adapt the step size
-        if not exceeds_threshold and score > threshold * 0.75:  # Adjust the condition as needed
+        if not exceeds_threshold and score > threshold * 0.75:
             step = max(min_step, int(step * step_reduction_factor))
             print(f"Reducing step size at size: {size} to {step}")
 
@@ -326,27 +326,26 @@ def get_faithfulness_metrics_adaptive(
     return faithfulness, min_size
 
 
-
-def get_faithfulness_metrics_binary_search(
-        graph: Graph,
-        model: HookedTransformer, 
-        dataloader: DataLoader, 
-        metric: CircuitMetric,
-        baseline: float,
-        threshold: float = 0.8,
-        start: int = 100,
-        end: int = 1000,
-    ):
-    
+def get_faithfulness_metrics_binary_search_with_local_search(
+    graph: Graph,
+    model: HookedTransformer, 
+    dataloader: DataLoader, 
+    metric: CircuitMetric,
+    baseline: float,
+    threshold: float = 0.8,
+    start: int = 100,
+    end: int = 1000,
+    local_search_radius: int = 5,
+):
     def evaluate_size(size: int) -> float:
         if size not in faithfulness:
             graph.apply_greedy(size, absolute=True)
             graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
             faithfulness[size] = (evaluate_graph(model, graph, dataloader, metric).mean() / baseline).item()
-            print(f"Size: {size}, Faithfulness: {faithfulness[size]}, Exceeds threshold: {faithfulness[size]>=threshold}")
+            print(f"Size: {size}, Faithfulness: {faithfulness[size]}, Exceeds threshold: {faithfulness[size] >= threshold}")
         return faithfulness[size]
-    
-    print(f"Entering binary search")
+
+    print("Entering binary search")
     faithfulness = dict()
     low = start
     high = end
@@ -354,15 +353,29 @@ def get_faithfulness_metrics_binary_search(
     while low <= high:
         mid = (low + high) // 2
         print(f"Low: {low}, High: {high}, Mid: {mid}")
-        if evaluate_size(mid) >= threshold:
+        mid_score = evaluate_size(mid)
+        if mid_score >= threshold:
             min_size = mid
             high = mid - 1
         else:
             low = mid + 1
-    
+
+        # Perform local linear search around the middle element if the score is close to the threshold
+        if abs(mid_score - threshold) <= threshold * 0.1:  # Adjust the tolerance as needed
+            for offset in range(-local_search_radius, local_search_radius + 1):
+                if offset == 0:
+                    continue
+                local_size = mid + offset
+                if start <= local_size <= end:
+                    local_score = evaluate_size(local_size)
+                    if local_score >= threshold and (min_size is None or local_size < min_size):
+                        min_size = local_size
+                        high = local_size - 1
+                        break
+
     if min_size is None:
-        return faithfulness, end  # No size found that meets the target_minimum
-    
+        return faithfulness, end  # No size found that meets the threshold
+
     # Return the faithfulness metrics for sizes up to the minimal size found
     return faithfulness, min_size
 
