@@ -283,18 +283,23 @@ def get_faithfulness_metrics_adaptive(
         graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
         score = (evaluate_graph(model, graph, dataloader, metric).mean() / baseline).item()
         faithfulness[size] = score
-        print(f"Size: {size}, Faithfulness: {score}")
+        print(f"Size: {size}, Faithfulness: {score}, Exceeds threshold: {exceeds_threshold}")
 
         if score > target_minimum:
             exceeds_threshold = True
-            print(f"Exceeds threshold at size: {size}")
+            #print(f"Exceeds threshold at size: {size}")
             min_size = size
-            step = initial_step
+            step = initial_step * 2
             #break
+
+        if step < initial_step and score < target_minimum * 0.75:
+            step = max(initial_step, int(step / step_reduction_factor))
+            print(f"Resetting step size at size: {size} to {step}")
 
         # Adapt the step size
         if not exceeds_threshold and score > target_minimum * 0.75:  # Adjust the condition as needed
             step = max(min_step, int(step * step_reduction_factor))
+            print(f"Reducing step size at size: {size} to {step}")
 
         size += step
     else:
