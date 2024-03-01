@@ -251,12 +251,56 @@ def get_faithfulness_metrics(
             exceeds_threshold = True
             min_size = int(size)
             print(f"Exceeds threshold: {min_size}")
+
             break
 
     if not exceeds_threshold:
         min_size = end
 
     return faithfulness, min_size
+
+
+def get_faithfulness_metrics_adaptive(
+    graph: Graph,
+    model: HookedTransformer, 
+    dataloader: DataLoader, 
+    metric: CircuitMetric,
+    baseline: float,
+    target_minimum: float = 0.8,
+    start: int = 25,
+    end: int = 1000,
+    initial_step: int = 25,
+    step_reduction_factor: float = 0.5,  # Factor by which to reduce the step size
+    min_step: int = 1,  # Minimum step size
+):
+    faithfulness = dict()
+    step = initial_step
+    size = start
+
+    while size < end:
+        graph.apply_greedy(size, absolute=True)
+        graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
+        score = (evaluate_graph(model, graph, dataloader, metric).mean() / baseline).item()
+        faithfulness[size] = score
+        print(f"Size: {size}, Faithfulness: {score}")
+
+        if score > target_minimum:
+            print(f"Exceeds threshold at size: {size}")
+            min_size = size
+            step = initial_step
+            #break
+
+        # Adapt the step size
+        if size + step >= end or score > target_minimum * 0.75:  # Adjust the condition as needed
+            step = max(min_step, int(step * step_reduction_factor))
+
+        size += step
+    else:
+        min_size = end
+
+    return faithfulness, min_size
+
+
 
 def get_faithfulness_metrics_binary_search(
         graph: Graph,
@@ -340,12 +384,14 @@ def main(args):
         faithfulness = dict()
 
         if args.verify:
-            if args.search_type == "linear":
-                search_fn = get_faithfulness_metrics
-            elif args.search_type == "binary":
-                search_fn = get_faithfulness_metrics_binary_search
+            # if args.search_type == "linear":
+            #     search_fn = get_faithfulness_metrics
+            # elif args.search_type == "binary":
+            #     search_fn = get_faithfulness_metrics_binary_search
+            # elif args.search_type == "adaptive":
+            #     search_fn = get_faithfulness_metrics_adaptive
             
-            faithfulness, args.top_n = search_fn(graph, model, dataloader, metric, baseline, start=args.start, end=args.end, step=args.step)
+            faithfulness, args.top_n = get_faithfulness_metrics_adaptive(graph, model, dataloader, metric, baseline, start=args.start, end=args.end, initial_step=args.step)
             
             
 
@@ -365,8 +411,8 @@ def main(args):
 
         if args.verify:
         # Save faithfulness to JSON
-            with open(f"results/faithfulness/{args.model}/{task}/{args.ckpt}.json", "w") as f:
-                print(f"Saving faithfulness to JSON for {args.model} and {task} to {args.ckpt}.json...")
+            with open(f"results/faithfulness/{args.model}/{task}/{ckpt}.json", "w") as f:
+                print(f"Saving faithfulness to JSON for {args.model} and {task} to {ckpt}.json...")
                 json.dump(faithfulness, f)
 
 if __name__ == "__main__":
