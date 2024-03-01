@@ -364,6 +364,8 @@ def main(args):
         gz.draw(f'results/images/{args.model}/{task}/{ckpt}.png', prog='dot')
 
         if args.verify:
+        # Save faithfulness to JSON
+            print(f"Saving faithfulness to JSON for {args.model} and {task}...")
             with open(f"results/faithfulness/{args.model}/{task}/{args.ckpt}.json", "w") as f:
                 json.dump(faithfulness, f)
 
