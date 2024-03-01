@@ -285,7 +285,7 @@ def get_faithfulness_metrics_adaptive(
         faithfulness[size] = score
         
 
-        if score > threshold:
+        if score > threshold and exceeds_threshold == False:
             exceeds_threshold = True
             #print(f"Exceeds threshold at size: {size}")
             binary_faithfulness, min_size = get_faithfulness_metrics_binary_search(
@@ -433,6 +433,8 @@ def main(args):
 
         if args.verify:
         # Save faithfulness to JSON
+            print(f"Faithfulness: {faithfulness}")
+            print(f"Optimal size: {args.top_n}")
             with open(f"results/faithfulness/{args.model}/{task}/{ckpt}.json", "w") as f:
                 print(f"Saving faithfulness to JSON for {args.model} and {task} to {ckpt}.json...")
                 json.dump(faithfulness, f)
