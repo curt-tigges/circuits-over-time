@@ -67,6 +67,12 @@ def get_args() -> argparse.Namespace:
         default="other",
         help="Checkpoint schedule over which to iterate",
     )
+    parser.add_argument(
+        "-cust",
+        "--custom_schedule",
+        default=[],
+        help="Custom schedule for checkpoints",
+    )
     parser.add_argument(    
         "-cd",
         "--cache_dir",
@@ -159,8 +165,10 @@ def get_ckpts(schedule):
         )
     elif schedule == "late_start_all":
         ckpts = (
-            [i * 4000 for i in range(1, 143)]
+            [i * 1000 for i in range(4, 143)]
         )
+    elif schedule == "custom":
+        ckpts = []
     else:
         ckpts = [10000, 143000]
 
@@ -385,6 +393,8 @@ def main(args):
     print(f"Arguments: {args}")
     schedule = args.ckpt_schedule
     ckpts = get_ckpts(schedule)
+    if args.custom_schedule:
+        ckpts = args.custom_schedule
 
     for ckpt in ckpts:
         # first check if graph json already exists
