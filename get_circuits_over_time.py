@@ -277,6 +277,7 @@ def get_faithfulness_metrics_adaptive(
     step = initial_step
     size = start
     exceeds_threshold = False
+    min_size = None
 
     while size < end:
         graph.apply_greedy(size, absolute=True)
@@ -317,9 +318,11 @@ def get_faithfulness_metrics_adaptive(
             print(f"Reducing step size at size: {size} to {step}")
 
         size += step
-    else:
+
+    if min_size is None:
         min_size = end
 
+    print(f"Optimal size is {min_size} with faithfulness {faithfulness[min_size]}")
     return faithfulness, min_size
 
 
