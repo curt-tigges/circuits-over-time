@@ -401,6 +401,7 @@ def get_faithfulness_metrics_binary_search_with_local_search(
 def main(args):
     print(f"Arguments: {args}")
     schedule = args.ckpt_schedule
+    task = args.task
     ckpts = get_ckpts(schedule)
     alt = args.alt_model
     model_folder = f"{alt[11:]}" if alt is not None else f"{args.model}"
@@ -438,7 +439,6 @@ def main(args):
         model.cfg.use_hook_mlp_in = True
         
         # Set up for task 
-        task = args.task
         ds, metric = get_data_and_metrics(model, task, eap=True)
         graph = Graph.from_model(model)
         dataloader = DataLoader(ds, batch_size=args.batch_size, collate_fn=collate_fn)
