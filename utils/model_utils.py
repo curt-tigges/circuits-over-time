@@ -23,13 +23,12 @@ def clear_gpu_memory(model):
     torch.cuda.empty_cache()
 
 
-def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
+def load_model(model_tl_name, model_hf_name, revision, cache_dir, fp16=False):
     """Loads a model from HuggingFace and wraps it in a TransformerLens.
 
     Args:
+        model_tl_name (str): Name of model in TransformerLens.
         model_hf_name (str): Name of model on HuggingFace.
-        model_tl_name (str): Name of model in TransformerLens. This can be different from model_hf_name; check the
-            TransformerLens documentation for more information.
         revision (str): Revision of model on HuggingFace.
         cache_dir (str): Directory to cache model in.
 
@@ -48,8 +47,8 @@ def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
     print(cache_dir)
     #Download model from HuggingFace
     source_model = AutoModelForCausalLM.from_pretrained(
-       model_hf_name, revision=revision, cache_dir=cache_dir, dtype=torch.bfloat16
-    )
+       model_hf_name, revision=revision, cache_dir=cache_dir
+    ).to(device).to(torch.bfloat16)
 
     # source_model.to("cpu")
 
