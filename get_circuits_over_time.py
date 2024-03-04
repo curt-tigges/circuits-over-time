@@ -417,7 +417,7 @@ def main(args):
         os.makedirs(f"results/graphs/{model_folder}/{task}", exist_ok=True)
         os.makedirs(f"results/images/{model_folder}/{task}", exist_ok=True)
         os.makedirs(f"results/faithfulness/{model_folder}/{task}", exist_ok=True)
-        os.makedirs(f"results/baselines/{model_folder}/{task}", exist_ok=True)
+        os.makedirs(f"results/baselines/{model_folder}", exist_ok=True)
 
         print(f"Loading model for step {ckpt}...")
         if args.large_model or args.canonical_model:
@@ -444,7 +444,10 @@ def main(args):
         dataloader = DataLoader(ds, batch_size=args.batch_size, collate_fn=collate_fn)
         
         # load the baseline dict
-        baseline_dict = json.load(open(f"results/baselines/{model_folder}/{task}.json"))
+        if os.path.exists(f"results/graphs/{model_folder}/{task}.json"):
+            baseline_dict = json.load(open(f"results/baselines/{model_folder}/{task}.json"))
+        else:
+            baseline_dict = dict()
 
         # Evaluate baseline and graph
         baseline = evaluate_baseline(model, dataloader, metric).mean()
