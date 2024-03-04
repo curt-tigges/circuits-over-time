@@ -451,7 +451,7 @@ def main(args):
 
         # Evaluate baseline and graph
         baseline = evaluate_baseline(model, dataloader, metric).mean()
-        baseline_dict[ckpt] = baseline
+        baseline_dict[ckpt] = baseline.item()
         
         # save the baseline dict
         with open(f"results/baselines/{model_folder}/{task}.json", "w") as f:
