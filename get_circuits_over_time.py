@@ -463,7 +463,7 @@ def main(args):
         faithfulness[args.top_n] = (results / baseline).item()
         print(results)
 
-        model_folder = f"{alt}" if alt is not None else f"{args.model}
+        model_folder = f"{alt}" if alt is not None else f"{args.model}"
 
         # Save graph and results
         os.makedirs(f"results/graphs/{model_folder}/{task}", exist_ok=True)
