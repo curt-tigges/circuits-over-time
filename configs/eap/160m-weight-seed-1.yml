@@ -1,4 +1,5 @@
-model: pythia-160m-weight-seed1
+model: pythia-160m
+alt_model: EleutherAI/pythia-160m-weight-seed1
 eval_metric: logit_diff
 batch_size: 32
 ckpt: 143000
