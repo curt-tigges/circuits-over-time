@@ -1,15 +1,13 @@
-{
-  "model": "pythia-160m",
-  "eval_metric": "logit_diff",
-  "batch_size": 32,
-  "ckpt": 143000,
-  "top_n": 100,
-  "ckpt_schedule": "late_start_exp_plus_detail",
-  "cache_dir": "model_cache",
-  "verify": True,
-  "start": 25,
-  "end": 1600,
-  "step": 25,
-  "overwrite": True,
-  "search_type": "linear",
-}
+model: pythia-160m
+eval_metric: logit_diff
+batch_size: 32
+ckpt: 143000
+top_n: 100
+ckpt_schedule: late_start_exp_plus_detail
+cache_dir: model_cache
+verify: true
+start: 25
+end: 1600
+step: 25
+overwrite: true
+search_type: linear

@@ -44,6 +44,12 @@ def get_args() -> argparse.Namespace:
         help="Name of model to load",
     )
     parser.add_argument(
+        "-alt",
+        "--alt_model",
+        default=None,
+        help="Name of alternate model to load, with architecture the same as the main model",
+    )
+    parser.add_argument(
         "-e",
         "--eval_metric",
         default="logit_diff",
@@ -416,7 +422,7 @@ def main(args):
         else:
             ckpt_key = f"step{ckpt}"
             # TODO: Add support for different model seeds
-            model = load_model(args.model, args.model, ckpt_key, args.cache_dir)
+            model = load_model(args.model, args.alt_model, ckpt_key, args.cache_dir)
         model.cfg.use_split_qkv_input = True
         model.cfg.use_attn_result = True
         model.cfg.use_hook_mlp_in = True
