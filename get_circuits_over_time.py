@@ -402,6 +402,7 @@ def main(args):
     print(f"Arguments: {args}")
     schedule = args.ckpt_schedule
     ckpts = get_ckpts(schedule)
+    alt = None
     if args.custom_schedule:
         ckpts = args.custom_schedule
 
@@ -426,6 +427,7 @@ def main(args):
             ckpt_key = f"step{ckpt}"
             # TODO: Add support for different model seeds
             model = load_model(args.model, args.alt_model, ckpt_key, args.cache_dir)
+            alt = args.alt_model
         model.cfg.use_split_qkv_input = True
         model.cfg.use_attn_result = True
         model.cfg.use_hook_mlp_in = True
@@ -461,20 +463,22 @@ def main(args):
         faithfulness[args.top_n] = (results / baseline).item()
         print(results)
 
+        model_folder = f"{alt}" if alt is not None else f"{args.model}
+
         # Save graph and results
-        os.makedirs(f"results/graphs/{args.model}/{task}", exist_ok=True)
-        os.makedirs(f"results/images/{args.model}/{task}", exist_ok=True)
-        os.makedirs(f"results/faithfulness/{args.model}/{task}", exist_ok=True)
-        graph.to_json(f'results/graphs/{args.model}/{task}/{ckpt}.json')
+        os.makedirs(f"results/graphs/{model_folder}/{task}", exist_ok=True)
+        os.makedirs(f"results/images/{model_folder}/{task}", exist_ok=True)
+        os.makedirs(f"results/faithfulness/{model_folder}/{task}", exist_ok=True)
+        graph.to_json(f'results/graphs/{model_folder}/{task}/{ckpt}.json')
         gz = graph.to_graphviz()
-        gz.draw(f'results/images/{args.model}/{task}/{ckpt}.png', prog='dot')
+        gz.draw(f'results/images/{model_folder}/{task}/{ckpt}.png', prog='dot')
 
         if args.verify:
         # Save faithfulness to JSON
             print(f"Faithfulness: {faithfulness}")
             print(f"Optimal size: {args.top_n}")
-            with open(f"results/faithfulness/{args.model}/{task}/{ckpt}.json", "w") as f:
-                print(f"Saving faithfulness to JSON for {args.model} and {task} to {ckpt}.json...")
+            with open(f"results/faithfulness/{model_folder}/{task}/{ckpt}.json", "w") as f:
+                print(f"Saving faithfulness to JSON for {model_folder} and {task} to {ckpt}.json...")
                 json.dump(faithfulness, f)
 
 if __name__ == "__main__":
