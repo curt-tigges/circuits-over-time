@@ -337,6 +337,11 @@ def get_faithfulness_metrics_adaptive(
         size += step
 
     if min_size is None:
+        size = end
+        graph.apply_greedy(size, absolute=True)
+        graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
+        score = (evaluate_graph(model, graph, dataloader, metric).mean() / baseline).item()
+        faithfulness[size] = score
         min_size = end
 
     print(f"Optimal size is {min_size} with faithfulness {faithfulness[min_size]}")
