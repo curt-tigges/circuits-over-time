@@ -402,15 +402,21 @@ def main(args):
     print(f"Arguments: {args}")
     schedule = args.ckpt_schedule
     ckpts = get_ckpts(schedule)
-    alt = None
+    alt = args.alt_model
+    model_folder = f"{alt[11:]}" if alt is not None else f"{args.model}"
     if args.custom_schedule:
         ckpts = args.custom_schedule
 
     for ckpt in ckpts:
         # first check if graph json already exists
-        if os.path.exists(f"results/graphs/{args.model}/{args.task}/{ckpt}.json"):
+        if os.path.exists(f"results/graphs/{model_folder}/{args.task}/{ckpt}.json"):
             if not args.overwrite:
                 continue
+
+        os.makedirs(f"results/graphs/{model_folder}/{task}", exist_ok=True)
+        os.makedirs(f"results/images/{model_folder}/{task}", exist_ok=True)
+        os.makedirs(f"results/faithfulness/{model_folder}/{task}", exist_ok=True)
+        os.makedirs(f"results/baselines/{model_folder}/{task}", exist_ok=True)
 
         print(f"Loading model for step {ckpt}...")
         if args.large_model or args.canonical_model:
@@ -427,7 +433,6 @@ def main(args):
             ckpt_key = f"step{ckpt}"
             # TODO: Add support for different model seeds
             model = load_model(args.model, args.alt_model, ckpt_key, args.cache_dir)
-            alt = args.alt_model
         model.cfg.use_split_qkv_input = True
         model.cfg.use_attn_result = True
         model.cfg.use_hook_mlp_in = True
@@ -438,11 +443,21 @@ def main(args):
         graph = Graph.from_model(model)
         dataloader = DataLoader(ds, batch_size=args.batch_size, collate_fn=collate_fn)
         
+        # load the baseline dict
+        baseline_dict = json.load(open(f"results/baselines/{model_folder}/{task}.json"))
+
         # Evaluate baseline and graph
         baseline = evaluate_baseline(model, dataloader, metric).mean()
+        baseline_dict[ckpt] = baseline
+        
+        # save the baseline dict
+        with open(f"results/baselines/{model_folder}/{task}.json", "w") as f:
+            json.dump(baseline_dict, f)
+
         print(f"Baseline metric value for {args.task}: {baseline}")
         attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
 
+        
         faithfulness = dict()
 
         if args.verify:
@@ -463,12 +478,8 @@ def main(args):
         faithfulness[args.top_n] = (results / baseline).item()
         print(results)
 
-        model_folder = f"{alt[11:]}" if alt is not None else f"{args.model}"
-
         # Save graph and results
-        os.makedirs(f"results/graphs/{model_folder}/{task}", exist_ok=True)
-        os.makedirs(f"results/images/{model_folder}/{task}", exist_ok=True)
-        os.makedirs(f"results/faithfulness/{model_folder}/{task}", exist_ok=True)
+        
         graph.to_json(f'results/graphs/{model_folder}/{task}/{ckpt}.json')
         gz = graph.to_graphviz()
         gz.draw(f'results/images/{model_folder}/{task}/{ckpt}.png', prog='dot')
