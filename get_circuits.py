@@ -2,6 +2,7 @@
 from functools import partial
 import argparse
 import yaml
+import json
 import os
 
 from transformer_lens import HookedTransformer
@@ -77,6 +78,12 @@ def get_args() -> argparse.Namespace:
         "--top_n",
         default=400,
         help="Number of edges to keep in the graph",
+    )
+    parser.add_argument(
+        "-v",
+        "--verify",
+        default=False,
+        help="Whether to get the faithfulness curve for the graph",
     )   
     return parser.parse_args()
 
@@ -127,6 +134,7 @@ def get_data_and_metrics(
 
     if task_name == "ioi":
         ds = UniversalPatchingDataset.from_ioi(model, 70)
+        #kld_metric = partial(kl_div
         logit_diff_metric = partial(compute_logit_diff,mode='simple')
         metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
 
@@ -152,6 +160,26 @@ def get_data_and_metrics(
         metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
 
     return ds, metric
+
+def get_faithfulness_metrics(
+        graph: Graph,
+        model: HookedTransformer, 
+        dataloader: DataLoader, 
+        metric: CircuitMetric,
+        baseline: float,
+        start: int = 100,
+        end: int = 1000,
+        step: int = 100,
+    ):
+
+    faithfulness = dict()
+
+    for size in range(start, end, step):
+        graph.apply_greedy(size, absolute=True)
+        graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
+        faithfulness[size] = (evaluate_graph(model, graph, dataloader, metric).mean() / baseline).item()
+
+    return faithfulness
 
 #%%
 def main(args):
@@ -184,19 +212,31 @@ def main(args):
     baseline = evaluate_baseline(model, dataloader, metric).mean()
     print(f"Baseline metric value for {args.task}: {baseline}")
     attribute(model, graph, dataloader, partial(metric, loss=True), integrated_gradients=30)
+
+    faithfulness = dict()
+
+    if args.verify:
+        faithfulness = get_faithfulness_metrics(graph, model, dataloader, metric, baseline, start=25, end=1600, step=25)
+        print(faithfulness)
+
+    # Get default graph and faithfulness
     graph.apply_greedy(args.top_n, absolute=True)
     graph.prune_dead_nodes(prune_childless=True, prune_parentless=True)
     results = evaluate_graph(model, graph, dataloader, metric).mean()
+    faithfulness[args.top_n] = (results / baseline).item()
     print(results)
 
     # Save graph and results
     os.makedirs(f"results/graphs/{args.model}/{task}", exist_ok=True)
     os.makedirs(f"results/images/{args.model}/{task}", exist_ok=True)
+    os.makedirs(f"results/faithfulness/{args.model}/{task}", exist_ok=True)
     graph.to_json(f'results/graphs/{args.model}/{task}/{args.ckpt}.json')
     gz = graph.to_graphviz()
     gz.draw(f'results/images/{args.model}/{task}/{args.ckpt}.png', prog='dot')
-    return graph, results
-
+    if args.verify:
+        # Save faithfulness to JSON
+        with open(f"results/faithfulness/{args.model}/{task}/{args.ckpt}.json", "w") as f:
+            json.dump(faithfulness, f)
 if __name__ == "__main__":
     args = process_args()
     main(args)
