@@ -45,6 +45,8 @@ from transformer_lens import (
 from path_patching_cm.path_patching import Node, IterNode, path_patch, act_patch
 from path_patching_cm.ioi_dataset import IOIDataset, NAMES
 
+from data.sva.create_dataset import create_dataset as create_sva_dataset
+from data.sva.utils import get_singular_and_plural
 from data.greater_than_dataset import YearDataset, get_valid_years, get_year_indices
 #from data.sentiment_datasets import get_dataset, PromptType
 
@@ -191,6 +193,44 @@ def prepare_indices_for_prob_diff(tokenizer, years):
     return token_ids_tensor, flags_tensor
 
 
+def prepare_indices_for_sva(model, pluralities):
+    """
+    Prepares two tensors for use with the compute_probability_diff function in 'groups' mode.
+
+    Args:
+        tokenizer (PreTrainedTokenizer): Tokenizer to convert verbs to token indices.
+        pluralities (torch.Tensor): Tensor containing the plurality fo the subject for each prompt in the batch.
+
+    Returns:
+        torch.Tensor, torch.Tensor: Two tensors, one for token IDs and one for correct/incorrect flags.
+    """
+
+    # Get the indices for present-tense verbs
+    singular_verb_indices, plural_verb_indices = get_singular_and_plural(model, strict=False)  # Tensor with token IDs for verbs
+    all_verb_indices = torch.cat((singular_verb_indices, plural_verb_indices), dim=0)
+    singular_index = len(singular_verb_indices)
+
+    # Prepare tensors to store token IDs and correct/incorrect flags
+    token_ids_tensor = all_verb_indices.repeat(pluralities.size(0), 1)  # Repeat the year_indices for each batch item
+    flags_tensor = torch.zeros_like(token_ids_tensor)  # Initialize the flags tensor with zeros
+
+    for i, plurality in enumerate(pluralities):
+        # plural case
+        if plurality:
+            # Mark plural verbs correct
+            flags_tensor[i, singular_index:] = 1
+            # Mark singular verbs incorrect
+            flags_tensor[i, :singular_index] = -1
+        # singular case
+        else:
+            # Mark plural verbs incorrect
+            flags_tensor[i, singular_index:] = -1
+            # Mark singular verbs correct
+            flags_tensor[i, :singular_index] = 1
+
+    return token_ids_tensor, flags_tensor
+
+
 class UniversalPatchingDataset():
 
     def __init__(
@@ -272,6 +312,13 @@ class UniversalPatchingDataset():
     @classmethod
     def from_gender_bias(cls, model: HookedTransformer, size: int = 1000):
         return cls.from_csv(model, 'data/gender-bias.csv', 'clean', 'corrupted', 'clean_answer_idx', 'corrupted_answer_idx', size=size)
+    
+    @classmethod
+    def from_sva(cls, model, size: int = 1000):
+        clean, corrupted, labels, max_len, positions = create_sva_dataset(model.tokenizer, size)
+        answer_tokens, group_flags = prepare_indices_for_sva(model, labels)
+
+        return cls(clean, corrupted, answer_tokens, max_len, positions=positions, group_flags=group_flags)
 
     @classmethod
     def from_sentiment(cls, model, task_type: str):
