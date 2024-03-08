@@ -48,7 +48,8 @@ else:
 
 import pandas as pd
 import plotly.express as px
-import circuitsvis as cv
+# Temporarily disabled
+#import circuitsvis as cv
 
 
 def plot_attention_heads(tensor, title="", top_n=0, range_x=[0, 2.5], threshold=0.02):
@@ -174,21 +175,21 @@ def get_attn_pattern(
 
 
 
-def plot_attention(
-    model: HookedTransformer, prompt: str, attn_heads: List[Tuple[int]], 
-    cache: ActivationCache = None, weighted: bool = True, 
-    max_value: float = 1.0, min_value: float = 0.0
-):
-    tokens, attention_pattern, head_name_list = get_attn_pattern(
-        model, prompt, attn_heads, cache, weighted
-    )
-    return cv.attention.attention_heads(
-        tokens=tokens, 
-        attention=attention_pattern, 
-        attention_head_names=head_name_list,
-        max_value=max_value,
-        min_value=min_value,
-    )
+# def plot_attention(
+#     model: HookedTransformer, prompt: str, attn_heads: List[Tuple[int]], 
+#     cache: ActivationCache = None, weighted: bool = True, 
+#     max_value: float = 1.0, min_value: float = 0.0
+# ):
+#     tokens, attention_pattern, head_name_list = get_attn_pattern(
+#         model, prompt, attn_heads, cache, weighted
+#     )
+#     return cv.attention.attention_heads(
+#         tokens=tokens, 
+#         attention=attention_pattern, 
+#         attention_head_names=head_name_list,
+#         max_value=max_value,
+#         min_value=min_value,
+#     )
 
 
 def scatter_attention_and_contribution(
