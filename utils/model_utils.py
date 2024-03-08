@@ -23,13 +23,12 @@ def clear_gpu_memory(model):
     torch.cuda.empty_cache()
 
 
-def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
+def load_model(model_tl_name, model_hf_name, revision, cache_dir, fp16=False):
     """Loads a model from HuggingFace and wraps it in a TransformerLens.
 
     Args:
+        model_tl_name (str): Name of model in TransformerLens.
         model_hf_name (str): Name of model on HuggingFace.
-        model_tl_name (str): Name of model in TransformerLens. This can be different from model_hf_name; check the
-            TransformerLens documentation for more information.
         revision (str): Revision of model on HuggingFace.
         cache_dir (str): Directory to cache model in.
 
@@ -46,30 +45,26 @@ def load_model(model_hf_name, model_tl_name, revision, cache_dir, fp16=False):
     cache_dir = cache_dir + f"/{cache_model_name}/{revision}"
 
     print(cache_dir)
-    # Download model from HuggingFace
-    #source_model = AutoModelForCausalLM.from_pretrained(
-    #    model_hf_name, revision=revision, cache_dir=cache_dir
-    #).half()
+    #Download model from HuggingFace
+    source_model = AutoModelForCausalLM.from_pretrained(
+       model_hf_name, revision=revision, cache_dir=cache_dir
+    ).to(device).to(torch.bfloat16)
 
     # source_model.to("cpu")
 
     # Load model into TransformerLens
     model = HookedTransformer.from_pretrained(
         model_tl_name,
-        #hf_model=source_model,
-        #center_unembed=True,
-        #center_writing_weights=True,
-        #fold_ln=True,
-        # move_state_dict_to_device=False,
-        # device="cpu",
+        hf_model=source_model,
+        center_unembed=False,
+        center_writing_weights=False,
+        fold_ln=False,
+        dtype=torch.bfloat16,
+        **{"cache_dir": cache_dir},
     )
 
-    model.cfg.use_split_qkv_input = True
-    model.cfg.use_attn_result = True
-    model.cfg.use_hook_mlp_in = True
-
-    model.cfg.device = device
-    model.to(device)
+    #model.cfg.device = device
+    #model.to(device)
     #clear_gpu_memory(source_model)
 
     return model
