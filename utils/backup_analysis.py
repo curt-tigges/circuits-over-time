@@ -33,7 +33,13 @@ else:
     device = "cpu"
 
 
-def load_model(BASE_MODEL: str, VARIANT: str, CHECKPOINT: int, CACHE: str, device: torch.device) -> HookedTransformer:
+def load_model(
+        base_model: str = "pythia-160m", 
+        variant: str = None, 
+        checkpoint: int = 143000, 
+        cache: str = "model_cache", 
+        device: torch.device = torch.device("cuda")
+    ) -> HookedTransformer:
     """
     Load a transformer model from a pretrained base model or variant.
 
@@ -47,31 +53,31 @@ def load_model(BASE_MODEL: str, VARIANT: str, CHECKPOINT: int, CACHE: str, devic
     Returns:
         HookedTransformer: The loaded transformer model.
     """
-    if not VARIANT:
+    if not variant:
         model = HookedTransformer.from_pretrained(
-            BASE_MODEL,
-            checkpoint_value=CHECKPOINT,
+            base_model,
+            checkpoint_value=checkpoint,
             center_unembed=True,
             center_writing_weights=True,
             fold_ln=True,
             refactor_factored_attn_matrices=False,
             #dtype=torch.bfloat16,
-            **{"cache_dir": CACHE},
+            **{"cache_dir": cache},
         )
     else:
-        revision = f"step{CHECKPOINT}"
+        revision = f"step{checkpoint}"
         source_model = AutoModelForCausalLM.from_pretrained(
-           VARIANT, revision=revision, cache_dir=CACHE
+           variant, revision=revision, cache_dir=cache
         ).to(device) #.to(torch.bfloat16)
-        print(f"Loaded model {VARIANT} at {revision}; now loading into HookedTransformer")
+        print(f"Loaded model {variant} at {revision}; now loading into HookedTransformer")
         model = HookedTransformer.from_pretrained(
-            BASE_MODEL,
+            base_model,
             hf_model=source_model,
             center_unembed=False,
             center_writing_weights=False,
             fold_ln=False,
             #dtype=torch.bfloat16,
-            **{"cache_dir": CACHE},
+            **{"cache_dir": cache},
         )
 
     model.cfg.use_split_qkv_input = True
