@@ -129,4 +129,10 @@ def S2I_head_metrics(model: HookedTransformer, ioi_dataset, potential_s2i_list: 
     new_logit_diffs = torch.cat(new_logit_diffs, dim=0)
     new_nmh_s1_attention_values = torch.cat(new_nmh_s1_attention_values, dim=0)
 
-    return baseline_logit_diffs, end_s2_attention_values, baseline_nmh_s1_attention_values, new_logit_diffs, new_nmh_s1_attention_values
+    return {
+        'baseline_logit_diffs': baseline_logit_diffs,
+        'end_s2_attention_values': end_s2_attention_values,
+        'baseline_nmh_s1_attention_values': baseline_nmh_s1_attention_values,
+        'new_logit_diffs': new_logit_diffs,
+        'new_nmh_s1_attention_values': new_nmh_s1_attention_values
+    }
