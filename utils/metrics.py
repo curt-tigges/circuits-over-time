@@ -32,6 +32,45 @@ def _logits_to_mean_logit_diff(logits: Float[Tensor, "batch seq d_vocab"], ioi_d
     return answer_logit_diff if per_prompt else answer_logit_diff.mean()
 
 
+def logit_diff_denoising(
+    logits: Float[Tensor, "batch seq d_vocab"],
+    dataset: IOIDataset,
+    flipped_logit_diff: float,
+    clean_logit_diff: float,
+    return_tensor: bool = False,
+) -> Float[Tensor, ""]:
+    '''
+    Linear function of logit diff, calibrated so that it equals 0 when performance is
+    same as on flipped input, and 1 when performance is same as on clean input.
+    '''
+    patched_logit_diff = _logits_to_mean_logit_diff(logits, dataset)
+    ld = ((patched_logit_diff - flipped_logit_diff) / (clean_logit_diff  - flipped_logit_diff))
+    if return_tensor:
+        return ld
+    else:
+        return ld.item()
+
+
+def logit_diff_noising(
+        logits: Float[Tensor, "batch seq d_vocab"],
+        dataset: IOIDataset,
+        clean_logit_diff: float,
+        flipped_logit_diff: float,
+        return_tensor: bool = False,
+    ) -> float:
+        '''
+        We calibrate this so that the value is 0 when performance isn't harmed (i.e. same as IOI dataset),
+        and -1 when performance has been destroyed (i.e. is same as ABC dataset).
+        '''
+        patched_logit_diff = _logits_to_mean_logit_diff(logits, dataset)
+        ld = ((patched_logit_diff - clean_logit_diff) / (clean_logit_diff - flipped_logit_diff))
+
+        if return_tensor:
+            return ld
+        else:
+            return ld.item()
+
+
 def _logits_to_mean_accuracy(logits: Float[Tensor, "batch seq d_vocab"], ioi_dataset: IOIDataset):
     '''
     Returns accuracy of the model on the IOI dataset.
