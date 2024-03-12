@@ -473,7 +473,13 @@ def process_backup_results(edge_df: pd.DataFrame, checkpoint: int, experiment_me
 
 
 
-def plot_top_heads(checkpoint_dict: Dict[int, np.ndarray], cumulative_nmhs: Dict[int, Set[Tuple[int, int]]], top_k_per_checkpoint: int = 5, top_k: int = 5) -> pd.DataFrame:
+def plot_top_heads(
+        model_name: str,
+        checkpoint_dict: Dict[int, np.ndarray], 
+        cumulative_nmhs: Dict[int, Set[Tuple[int, int]]], 
+        top_k_per_checkpoint: int = 5, 
+        top_k: int = 5
+    ) -> pd.DataFrame:
     """
     Plot the top backup heads attribution across checkpoints.
 
@@ -536,7 +542,7 @@ def plot_top_heads(checkpoint_dict: Dict[int, np.ndarray], cumulative_nmhs: Dict
         x='Checkpoint', 
         y='Value', 
         color='Layer-Head', 
-        title='Top Backup Heads Attribution Across Checkpoints (Pythia 160m Default)', 
+        title=f'Top Backup Heads Attribution Across Checkpoints ({model_name})', 
         height=500,
         labels={'x': 'Checkpoint', 'y': 'Change as % of original logit diff'}
     )
