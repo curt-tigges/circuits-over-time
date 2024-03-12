@@ -387,7 +387,9 @@ def run_iteration(base_model: str, variant: str, edge_df: pd.DataFrame, checkpoi
 
     return experiment_metrics
 
-def get_past_nmhs_for_checkpoints(experiment_metrics: Dict[int, Dict[str, Any]]) -> Tuple[Dict[int, Set[Tuple[int, int]]], Dict[int, Set[Tuple[int, int]]]]:
+def get_past_nmhs_for_checkpoints(
+        experiment_metrics: Dict[int, Dict[str, Any]]
+    ) -> Tuple[Dict[int, Set[Tuple[int, int]]], Dict[int, Set[Tuple[int, int]]]]:
     """
     Get the cumulative and individual NMHs (no meaning heads) for each checkpoint.
 
@@ -398,7 +400,7 @@ def get_past_nmhs_for_checkpoints(experiment_metrics: Dict[int, Dict[str, Any]])
         Tuple[Dict[int, Set[Tuple[int, int]]], Dict[int, Set[Tuple[int, int]]]]: A tuple containing the cumulative and individual NMHs for each checkpoint.
     """
     checkpoint_nmhs =  {checkpoint: set(experiment_metrics[checkpoint]['ablation_targets']) for checkpoint in experiment_metrics.keys()}
-    print(checkpoint_nmhs[20000])
+    #print(checkpoint_nmhs[20000])
 
     checkpoint_list = list(checkpoint_nmhs.keys())
     checkpoint_list.sort()
