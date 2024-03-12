@@ -301,8 +301,8 @@ def compute_jaccard_similarity_to_reference(df, reference_checkpoint):
     # Iterate over all checkpoints
     for checkpoint in checkpoints:
         # Skip the reference checkpoint
-        if checkpoint == reference_checkpoint:
-            continue
+        # if checkpoint == reference_checkpoint:
+        #     continue
 
         # Get the set of edges for the current checkpoint
         edges = set(df[(df['checkpoint'] == checkpoint) & (df['in_circuit'] == True)]['edge'])
@@ -317,6 +317,90 @@ def compute_jaccard_similarity_to_reference(df, reference_checkpoint):
             'reference_checkpoint': reference_checkpoint,
             'checkpoint': checkpoint,
             'jaccard_similarity': jaccard_similarity
+        })
+
+    # Convert the results to a DataFrame and return
+    return pd.DataFrame(results)
+
+
+def compute_weighted_jaccard_similarity(df):
+    # Ensure the dataframe is sorted by checkpoint
+    df = df.sort_values(by='checkpoint')
+
+    # Get the unique checkpoints
+    checkpoints = df['checkpoint'].unique()
+
+    # Initialize a list to store the results
+    results = []
+
+    # Iterate over pairs of adjacent checkpoints
+    for i in range(len(checkpoints) - 1):
+        # Get the data for each checkpoint
+        df_1 = df[(df['checkpoint'] == checkpoints[i]) & (df['in_circuit'] == True)]
+        df_2 = df[(df['checkpoint'] == checkpoints[i + 1]) & (df['in_circuit'] == True)]
+
+        # Create dictionaries mapping edges to their scores
+        scores_1 = dict(zip(df_1['edge'], df_1['score']))
+        scores_2 = dict(zip(df_2['edge'], df_2['score']))
+
+        # Calculate the weighted intersection and union
+        weighted_intersection = sum(min(scores_1.get(edge, 0), scores_2.get(edge, 0)) for edge in set(scores_1) | set(scores_2))
+        weighted_union = sum(max(scores_1.get(edge, 0), scores_2.get(edge, 0)) for edge in set(scores_1) | set(scores_2))
+
+        # Calculate the weighted Jaccard similarity
+        weighted_jaccard_similarity = weighted_intersection / weighted_union if weighted_union != 0 else 0
+
+        # Append the results for this pair of checkpoints
+        results.append({
+            'checkpoint_1': checkpoints[i],
+            'checkpoint_2': checkpoints[i + 1],
+            'jaccard_similarity': weighted_jaccard_similarity
+        })
+
+    # Convert the results to a DataFrame and return
+    return pd.DataFrame(results)
+
+
+def compute_weighted_jaccard_similarity_to_reference(df, reference_checkpoint):
+    # Ensure the dataframe is sorted by checkpoint
+    df = df.sort_values(by='checkpoint')
+
+    # Get the unique checkpoints
+    checkpoints = df['checkpoint'].unique()
+
+    # Initialize a list to store the results
+    results = []
+
+    # Get the data for the reference checkpoint
+    df_reference = df[(df['checkpoint'] == reference_checkpoint) & (df['in_circuit'] == True)]
+
+    # Create a dictionary mapping edges to their scores for the reference checkpoint
+    scores_reference = dict(zip(df_reference['edge'], df_reference['score'].abs()))
+
+    # Iterate over all checkpoints
+    for checkpoint in checkpoints:
+        # Skip the reference checkpoint
+        # if checkpoint == reference_checkpoint:
+        #     continue
+
+        # Get the data for the current checkpoint
+        df_checkpoint = df[(df['checkpoint'] == checkpoint) & (df['in_circuit'] == True)]
+
+        # Create a dictionary mapping edges to their scores for the current checkpoint
+        scores_checkpoint = dict(zip(df_checkpoint['edge'], df_checkpoint['score'].abs()))
+
+        # Calculate the weighted intersection and union
+        weighted_intersection = sum(min(scores_reference.get(edge, 0), scores_checkpoint.get(edge, 0)) for edge in set(scores_reference) | set(scores_checkpoint))
+        weighted_union = sum(max(scores_reference.get(edge, 0), scores_checkpoint.get(edge, 0)) for edge in set(scores_reference) | set(scores_checkpoint))
+
+        # Calculate the weighted Jaccard similarity
+        weighted_jaccard_similarity = weighted_intersection / weighted_union if weighted_union != 0 else 0
+
+        # Append the results for this checkpoint
+        results.append({
+            'reference_checkpoint': reference_checkpoint,
+            'checkpoint': checkpoint,
+            'jaccard_similarity': weighted_jaccard_similarity
         })
 
     # Convert the results to a DataFrame and return
