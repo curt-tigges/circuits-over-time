@@ -102,7 +102,7 @@ def prepare_data(model, use_semanticity=True, batch_size=500, seq_len=1000, seed
     return DATA_TOKS, DATA_STR_TOKS_PARSED, cspa_semantic_dict, indices
 
 
-def get_cspa_per_checkpoint(base_model, variant, cache, device, checkpoints, start_layer, overwrite=False):
+def get_cspa_per_checkpoint(base_model, variant, cache, device, checkpoints, start_layer, overwrite=False, display_all=False):
     
     model_shortname = base_model if not variant else variant[11:]
     
@@ -133,6 +133,12 @@ def get_cspa_per_checkpoint(base_model, variant, cache, device, checkpoints, sta
         checkpoint_dict[checkpoint] = head_results
         torch.save(checkpoint_dict, filename)
         clear_output()
+
+        if display_all:
+
+            display_checkpoints = [c for c in checkpoint_dict.keys() if c <= checkpoint]
+
+            display_cspa_grids(model_shortname, display_checkpoints)
         
 
 
