@@ -4,7 +4,6 @@ import torch
 #import circuitsvis as cv
 import pickle
 import warnings
-from tdqm.auto import tdqm
 from transformers import AutoModelForCausalLM
 
 from transformer_lens import HookedTransformer
@@ -119,7 +118,7 @@ def get_cspa_per_checkpoint(base_model, variant, cache, device, checkpoints, sta
     else:
         checkpoint_dict = {} 
 
-    for checkpoint in tdqm(checkpoints):
+    for checkpoint in checkpoints:
         if checkpoint in checkpoint_dict and not overwrite:
             print(f"Skipping checkpoint {checkpoint} as it already exists in the dictionary.")
             continue
@@ -144,7 +143,7 @@ def get_cspa_for_model(model, start_layer=2):
     current_batch_size = 17 # Smaller values so we can check more checkpoints in a reasonable amount of time
     current_seq_len = 61
 
-    for layer in tdqm(range(start_layer, 12)):
+    for layer in range(start_layer, 12):
         for head in range(12):
             start = time.time()
             result_mean = get_result_mean([(layer, head)], DATA_TOKS[:100, :], model, verbose=True)
