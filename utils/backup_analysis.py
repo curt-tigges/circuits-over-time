@@ -76,6 +76,7 @@ def load_model(
             center_unembed=True,
             center_writing_weights=True,
             fold_ln=True,
+            device=device,
             #dtype=torch.bfloat16,
             **{"cache_dir": cache},
         )
