@@ -1,7 +1,7 @@
 base_model: pythia-160m
 variant: ~
 cache: model_cache
-ckpt_schedule:
+checkpoint_schedule:
   - 512
   - 1000
   - 2000
