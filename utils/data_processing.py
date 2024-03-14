@@ -16,13 +16,18 @@ def read_json_file(file_path):
         return json.load(file)
 
 
-def load_edge_scores_into_dictionary(folder_path):
+def load_edge_scores_into_dictionary(folder_path, checkpoint=None):
     file_paths = glob.glob(f'{folder_path}/*.json')
 
     # Create an empty DataFrame to store all edge scores
     all_edges = pd.DataFrame()
 
+   
     for i, file_path in enumerate(file_paths):
+        checkpoint_name = int(os.path.basename(file_path).replace('.json', ''))
+        if checkpoint is not None and checkpoint_name != checkpoint:
+            continue
+
         print(f'Processing file {i+1}/{len(file_paths)}: {file_path}')
         data = read_json_file(file_path)
         edges = data['edges']
@@ -30,14 +35,11 @@ def load_edge_scores_into_dictionary(folder_path):
         circuit_inclusion = [edge['in_graph'] for edge in edges.values()]
         edge_names = [edge for edge in edges.keys()]
 
-        # Extract checkpoint name from the filename
-        checkpoint_name = int(os.path.basename(file_path).replace('.json', ''))
-        #checkpoint_name = f'step {checkpoint_name}'
-
         checkpoint_df = pd.DataFrame({'edge': edge_names, 'score': scores, 'in_circuit': circuit_inclusion, 'checkpoint': checkpoint_name})
         all_edges = pd.concat([all_edges, checkpoint_df])
 
     all_edges = all_edges.sort_values('checkpoint')
+
     return all_edges
 
 
