@@ -24,7 +24,7 @@ def get_args():
     parser.add_argument(
         "-c",
         "--config",
-        default="./configs/cspa/defaults.yml",
+        default="./configs/cspa/160m-canonical.yml",
         help="Path to config file",
     )
     return parser.parse_args()
