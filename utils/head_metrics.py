@@ -98,9 +98,8 @@ def S2I_head_metrics(model: HookedTransformer, ioi_dataset, potential_s2i_list: 
             def make_s2i(layer, head):
                 return Node(f'blocks.{layer}.attn.hook_z', layer, head)
             def make_nmh(layer, head):
-                act_name = f'blocks.{layer}.hook_q_input'
-                print(f"Making NMH node for layer {layer} and head {head}, using {act_name}")
-                return Node(act_name, layer, head)
+                print(f"Making NMH node for layer {layer} and head {head}")
+                return Node(f'blocks.{layer}.hook_q_input', layer, head)
             
             temp_NMH_list = [make_nmh(nmh_layer, nmh_head) for nmh_layer, nmh_head in NMH_list]
             print(temp_NMH_list)
