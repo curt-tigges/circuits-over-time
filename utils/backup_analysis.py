@@ -60,7 +60,7 @@ def load_model(
             center_unembed=True,
             center_writing_weights=True,
             fold_ln=True,
-            refactor_factored_attn_matrices=False,
+            #refactor_factored_attn_matrices=False,
             #dtype=torch.bfloat16,
             **{"cache_dir": cache},
         )
@@ -73,9 +73,9 @@ def load_model(
         model = HookedTransformer.from_pretrained(
             base_model,
             hf_model=source_model,
-            center_unembed=False,
-            center_writing_weights=False,
-            fold_ln=False,
+            center_unembed=True,
+            center_writing_weights=True,
+            fold_ln=True,
             #dtype=torch.bfloat16,
             **{"cache_dir": cache},
         )
