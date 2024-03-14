@@ -101,10 +101,7 @@ def S2I_head_metrics(model: HookedTransformer, ioi_dataset, potential_s2i_list: 
                 print(f"Making NMH node for layer {layer} and head {head}")
                 return Node(f'blocks.{layer}.hook_q_input', layer, head)
             
-            temp_NMH_list = [make_nmh(nmh_layer, nmh_head) for nmh_layer, nmh_head in NMH_list]
-            print(temp_NMH_list)
-            
-            new_logits = path_patch(model, toks, abc_batch['toks'], make_s2i(s2i_layer, s2i_head), temp_NMH_list, lambda x: x, seq_pos=end_pos)[torch.arange(len(toks)), end_pos]
+            new_logits = path_patch(model, toks, abc_batch['toks'], make_s2i(s2i_layer, s2i_head), [make_nmh(nmh_layer, nmh_head) for nmh_layer, nmh_head in NMH_list], lambda x: x, seq_pos=end_pos)[torch.arange(len(toks)), end_pos]
 
             # there's maybe a way to get both the logits and the cache in one go, but I don't know how to use this path patch fn
             mixed_cache = path_patch(model, toks, abc_batch['toks'], make_s2i(s2i_layer, s2i_head), [make_nmh(nmh_layer, nmh_head) for nmh_layer, nmh_head in NMH_list], lambda x: x, seq_pos=end_pos, apply_metric_to_cache=True, names_filter_for_cache_metric=lambda name: 'hook_pattern' in name)
