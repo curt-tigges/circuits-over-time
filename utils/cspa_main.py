@@ -63,7 +63,7 @@ def load_model_for_cspa(
         revision = f"step{checkpoint}"
         source_model = AutoModelForCausalLM.from_pretrained(
            variant, revision=revision, cache_dir=cache
-        ).to(device) #.to(torch.bfloat16)
+        ) #.to(device) #.to(torch.bfloat16)
         print(f"Loaded model {variant} at {revision}; now loading into HookedTransformer")
         model = HookedTransformer.from_pretrained(
             base_model,
@@ -137,6 +137,7 @@ def get_cspa_per_checkpoint(base_model, variant, cache, device, checkpoints, sta
         if display_all:
 
             display_checkpoints = [c for c in checkpoint_dict.keys() if c <= checkpoint]
+            display_checkpoints.sort()
 
             display_cspa_grids(model_shortname, display_checkpoints)
         
