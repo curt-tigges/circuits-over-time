@@ -497,3 +497,38 @@ def hist_p(tensor, renderer=None, **kwargs):
         for i in range(len(fig.data)):
             fig.data[i]["name"] = names[i // 2]
     fig.show(renderer)
+
+
+def plot_graph_metric(df, metric, perf_metric_dict, title, y_range, x_axis_col='checkpoint', log_x=True):
+    # Add a new column for the performance metric by mapping the checkpoint_2 values using the perf_metric_dict
+    df['perf_metric'] = df[x_axis_col].map(perf_metric_dict)
+
+    # Interpolate missing values
+    df['perf_metric'] = df['perf_metric'].interpolate(method='linear')
+
+    # plot weighted additions, deletions, and total weighted GED over time
+    fig = px.line(df, width=1200, x=x_axis_col, y=[metric], title=title, log_x=log_x)
+
+    # Specify colors for each line
+    colors = {metric: 'lightblue', 'perf_metric': 'black'}
+
+    # Update each trace with the specified color
+    for i, trace in enumerate(fig.data):
+        fig.data[i].update(line=dict(color=colors[trace.name]))
+
+
+    # Convert to a go.Figure to add secondary Y-axis features and add the performance metric line
+    fig.update_layout(
+        yaxis=dict(range=[0, y_range], title=metric),
+        yaxis2=dict(range=[0, 5], title="Logit Difference", overlaying="y", side="right", showgrid=False)
+    )
+    fig.add_trace(
+        go.Scatter(x=df[x_axis_col], y=df['perf_metric'], name='perf_metric', mode='lines', yaxis='y2', line=dict(color=colors['perf_metric']))
+    )
+
+    # Optional: Update the layout if you need to adjust titles or other aesthetics
+    fig.update_layout(
+        yaxis_title=title
+    )
+
+    fig.show()
