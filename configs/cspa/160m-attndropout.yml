@@ -1,5 +1,5 @@
 base_model: pythia-160m
-variant: pythia-160m-attndropout
+variant: EleutherAI/pythia-160m-attndropout
 cache: model_cache
 checkpoint_schedule:
   - 512
