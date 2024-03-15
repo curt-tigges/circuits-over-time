@@ -407,3 +407,52 @@ def compute_weighted_jaccard_similarity_to_reference(df, reference_checkpoint):
 
     # Convert the results to a DataFrame and return
     return pd.DataFrame(results)
+
+
+def compute_ewma_weighted_jaccard_similarity(df, alpha=0.5):
+    # Ensure the dataframe is sorted by checkpoint
+    df = df.sort_values(by='checkpoint')
+
+    # Get the unique checkpoints
+    checkpoints = df['checkpoint'].unique()
+
+    # Initialize a list to store the results
+    results = []
+
+    # Initialize the previous EWMA value
+    prev_ewma = 0
+
+    # Iterate over pairs of adjacent checkpoints
+    for i in range(len(checkpoints) - 1):
+        # Get the data for each checkpoint
+        df_1 = df[(df['checkpoint'] == checkpoints[i]) & (df['in_circuit'] == True)]
+        df_2 = df[(df['checkpoint'] == checkpoints[i + 1]) & (df['in_circuit'] == True)]
+
+        # Create dictionaries mapping edges to their scores
+        scores_1 = dict(zip(df_1['edge'], df_1['score']))
+        scores_2 = dict(zip(df_2['edge'], df_2['score']))
+
+        # Calculate the weighted intersection and union
+        weighted_intersection = sum(min(scores_1.get(edge, 0), scores_2.get(edge, 0)) for edge in set(scores_1) | set(scores_2))
+        weighted_union = sum(max(scores_1.get(edge, 0), scores_2.get(edge, 0)) for edge in set(scores_1) | set(scores_2))
+
+        # Calculate the weighted Jaccard similarity
+        weighted_jaccard_similarity = weighted_intersection / weighted_union if weighted_union != 0 else 0
+
+        # Calculate the change rate
+        change_rate = 1 - weighted_jaccard_similarity
+
+        # Update the EWMA value
+        ewma = alpha * change_rate + (1 - alpha) * prev_ewma
+        prev_ewma = ewma
+
+        # Append the results for this pair of checkpoints
+        results.append({
+            'checkpoint_1': checkpoints[i],
+            'checkpoint_2': checkpoints[i + 1],
+            'jaccard_similarity': weighted_jaccard_similarity,
+            'ewma_change_rate': ewma
+        })
+
+    # Convert the results to a DataFrame and return
+    return pd.DataFrame(results)
