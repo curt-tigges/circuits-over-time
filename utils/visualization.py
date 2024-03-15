@@ -506,7 +506,6 @@ def plot_graph_metric(df, metric, perf_metric_dict, title, y_range, x_axis_col='
     # Interpolate missing values
     df['perf_metric'] = df['perf_metric'].interpolate(method='linear')
 
-    # plot weighted additions, deletions, and total weighted GED over time
     fig = px.line(df, width=1200, x=x_axis_col, y=[metric], title=title, log_x=log_x)
 
     # Specify colors for each line
@@ -527,8 +526,8 @@ def plot_graph_metric(df, metric, perf_metric_dict, title, y_range, x_axis_col='
     )
 
     # Optional: Update the layout if you need to adjust titles or other aesthetics
-    fig.update_layout(
-        yaxis_title=title
-    )
+    # fig.update_layout(
+    #     yaxis_title=title
+    # )
 
     fig.show()
