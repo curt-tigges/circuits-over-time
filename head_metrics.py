@@ -41,12 +41,16 @@ class BatchIOIDataset(IOIDataset):
         return {'toks':self.toks[i], 'io_token_id': torch.tensor(self.io_tokenIDs[i]), 's_token_id': torch.tensor(self.s_tokenIDs[i]), **{f'{k}_pos':v[i] for k, v in self.word_idx.items()}}
     
 ##%
+
+def make_s2i(layer, head):
+    return Node(f'blocks.{layer}.attn.hook_z', layer, head)
+def make_nmh(layer, head):
+    return Node(f'blocks.{layer}.hook_q_input', layer, head)
 def S2I_head_metrics(model: HookedTransformer, ioi_dataset, potential_s2i_list: List[Tuple[int, int]],  NMH_list: List[Tuple[int, int]], batch_size): 
 # a head is an S2I head if it meets 2-4 conditions
 # 1. ablating the head->NM<q> path hurts logit diff
 # - specifically, ablating them should increase NMH attn to S1
 # 2. the head attends mainly to S2 from the END position
-# 3.
     
     abc_dataset = ioi_dataset.gen_flipped_prompts("ABB->ABA, BAB->BAA")
     abc_dataset.__class__ = BatchIOIDataset
@@ -54,8 +58,6 @@ def S2I_head_metrics(model: HookedTransformer, ioi_dataset, potential_s2i_list: 
     abc_dataloader = DataLoader(abc_dataset, batch_size=batch_size, collate_fn=partial(collate_fn, device=model.cfg.device))
 
     potential_s2i_layers, potential_s2i_heads = (torch.tensor(x, device=model.cfg.device) for x in zip(*potential_s2i_list))
-
-    s2i_hook_set = set([f'blocks.{layer}.attn.hook_result' for layer, _ in potential_s2i_list])
 
     NMH_layers, NMH_heads = (torch.tensor(x, device=model.cfg.device) for x in zip(*NMH_list))
 
@@ -95,12 +97,7 @@ def S2I_head_metrics(model: HookedTransformer, ioi_dataset, potential_s2i_list: 
         new_nmh_s1_attention_value = []
         for potential_s2i in potential_s2i_list:
             s2i_layer, s2i_head = potential_s2i
-            # do interventions
-            def make_s2i(layer, head):
-                return Node(f'blocks.{layer}.attn.hook_z', layer, head)
-            def make_nmh(layer, head):
-                return Node(f'blocks.{layer}.hook_q_input', layer, head)
-            
+            # do interventions          
             new_logits = path_patch(model, toks, abc_batch['toks'], make_s2i(s2i_layer, s2i_head), [make_nmh(nmh_layer, nmh_head) for nmh_layer, nmh_head in NMH_list], lambda x: x, seq_pos=end_pos)[torch.arange(len(toks)), end_pos]
 
             # there's maybe a way to get both the logits and the cache in one go, but I don't know how to use this path patch fn
@@ -132,7 +129,94 @@ def S2I_head_metrics(model: HookedTransformer, ioi_dataset, potential_s2i_list: 
 
     return baseline_logit_diffs, end_s2_attention_values, baseline_nmh_s1_attention_values, new_logit_diffs, new_nmh_s1_attention_values
 
-# if __name__=='__main__':
+#%%
+def S2I_token_pos(model: HookedTransformer, ioi_dataset: IOIDataset, S2I_list: List[Tuple[int, int]],  NMH_list: List[Tuple[int, int]], batch_size): 
+    patch_dataset_names = ['token_same_pos_same', 'token_diff_pos_same', 'token_oppo_pos_same', 'token_same_pos_oppo', 'token_diff_pos_oppo', 'token_oppo_pos_oppo']
+    
+    random_name_dataset = ioi_dataset.gen_flipped_prompts("ABB->XYY, BAB->YXY") # token diff, pos same
+    io_s1_dataset = ioi_dataset.gen_flipped_prompts("ABB->BAB, BAB->ABB") # token same, pos oppo
+    io_s2_dataset = ioi_dataset.gen_flipped_prompts("ABB->ABA, BAB->BAA") # token oppo, pos oppo
+
+    random_name_io_s1_dataset = ioi_dataset.gen_flipped_prompts("ABB->XYX, BAB->XYY") # token diff pos oppo
+    # we omit this one, since it's actually the same
+    # random_name_io_s2_dataset = ioi_dataset.gen_flipped_prompts("ABB->XYX, BAB->XYY") # token diff pos oppo
+    io_s1_io_s2_dataset = ioi_dataset.gen_flipped_prompts("ABB->BAA, BAB->ABA") # token oppo pos same
+
+    patch_datasets = [ioi_dataset, random_name_dataset, io_s1_io_s2_dataset, io_s1_dataset,random_name_io_s1_dataset, io_s2_dataset]
+    for dataset in patch_datasets:
+        dataset.__class__ = BatchIOIDataset
+    ioi_dataloader = DataLoader(ioi_dataset, batch_size=batch_size, collate_fn=partial(collate_fn, device=model.cfg.device))
+    patch_dataloaders = [DataLoader(dataset, batch_size=batch_size, collate_fn=partial(collate_fn, device=model.cfg.device)) for dataset in patch_datasets]
+
+    NMH_layers, NMH_heads = (torch.tensor(x, device=model.cfg.device) for x in zip(*NMH_list))
+
+    logit_diffs = {name: [] for name in patch_dataset_names}
+    s1_attention_values = {name: [] for name in patch_dataset_names}
+    s2_attention_values = {name: [] for name in patch_dataset_names}
+    io_attention_values = {name: [] for name in patch_dataset_names}
+
+    S2I_nodes = [make_s2i(layer, head) for layer, head in S2I_list]
+    NMH_nodes = [make_nmh(layer, head) for layer, head in NMH_list]
+
+    for batch, *patch_batches in zip(ioi_dataloader, *patch_dataloaders):
+        toks = batch['toks']
+        io_pos = batch['IO_pos']
+        end_pos = batch['end_pos']
+        s2_pos = batch['S2_pos']
+        s1_pos = batch['S1_pos']
+        s_token_ids = batch['s_token_id']
+        io_token_ids = batch['io_token_id']
+
+        cache, caching_hooks, _ = model.get_caching_hooks(lambda name: 'hook_pattern' in name)
+        with model.hooks(caching_hooks):
+            logits = model(toks)[torch.arange(len(toks)), end_pos]
+
+        s_logits = logits[torch.arange(len(toks)), s_token_ids]
+        io_logits = logits[torch.arange(len(toks)), io_token_ids]
+
+        baseline_logit_diff = io_logits - s_logits 
+        logit_diffs['token_same_pos_same'].append(baseline_logit_diff)
+        
+        attention_patterns = torch.stack([cache[f'blocks.{n}.attn.hook_pattern'] for n in range(model.cfg.n_layers)])  #layer, batch, head, query, key
+        attention_patterns_by_head = attention_patterns[NMH_layers, :, NMH_heads]
+        nmh_s1_attention_value_baseline = attention_patterns_by_head[:, torch.arange(len(toks)), end_pos, s1_pos] # batch layer head
+        nmh_s2_attention_value_baseline = attention_patterns_by_head[:, torch.arange(len(toks)), end_pos, s2_pos] # batch layer head
+        nmh_io_attention_value_baseline = attention_patterns_by_head[:, torch.arange(len(toks)), end_pos, io_pos] # batch layer head
+        s1_attention_values['token_same_pos_same'].append(nmh_s1_attention_value_baseline.transpose(0,1))
+        s2_attention_values['token_same_pos_same'].append(nmh_s2_attention_value_baseline.transpose(0,1))
+        io_attention_values['token_same_pos_same'].append(nmh_io_attention_value_baseline.transpose(0,1))
+
+        for patch_batch, patch_dataset_name in zip(patch_batches, patch_dataset_names): 
+            if patch_dataset_name == 'token_same_pos_same':
+                continue  
+
+            new_logits = path_patch(model, toks, patch_batch['toks'], S2I_nodes, NMH_nodes, lambda x: x, seq_pos=end_pos)[torch.arange(len(toks)), end_pos]
+
+            # there's maybe a way to get both the logits and the cache in one go, but I don't know how to use this path patch fn
+            mixed_cache = path_patch(model, toks, patch_batch['toks'], S2I_nodes, NMH_nodes, lambda x: x, seq_pos=end_pos, apply_metric_to_cache=True, names_filter_for_cache_metric=lambda name: 'hook_pattern' in name)
+
+            # record new logit diff
+            new_s_logits = new_logits[torch.arange(len(toks)), s_token_ids]
+            new_io_logits = new_logits[torch.arange(len(toks)), io_token_ids]
+            ablated_logit_diff = new_io_logits - new_s_logits 
+            logit_diffs[patch_dataset_name].append(ablated_logit_diff)
+
+            # record new attn patterns
+            new_attention_patterns = torch.stack([mixed_cache[f'blocks.{n}.attn.hook_pattern'] for n in range(model.cfg.n_layers)])
+
+            attention_patterns_by_head = new_attention_patterns[NMH_layers, :, NMH_heads]
+            nmh_s1_attention_value_baseline = attention_patterns_by_head[:, torch.arange(len(toks)), end_pos, s1_pos] # batch layer head
+            nmh_s2_attention_value_baseline = attention_patterns_by_head[:, torch.arange(len(toks)), end_pos, s2_pos] # batch layer head
+            nmh_io_attention_value_baseline = attention_patterns_by_head[:, torch.arange(len(toks)), end_pos, io_pos] # batch layer head
+            s1_attention_values[patch_dataset_name].append(nmh_s1_attention_value_baseline.transpose(0,1))
+            s2_attention_values[patch_dataset_name].append(nmh_s2_attention_value_baseline.transpose(0,1))
+            io_attention_values[patch_dataset_name].append(nmh_io_attention_value_baseline.transpose(0,1))
+
+    for d in [logit_diffs, s1_attention_values, s2_attention_values, io_attention_values]:
+        for patch_dataset_name in patch_dataset_names:
+            d[patch_dataset_name] = torch.cat(d[patch_dataset_name], dim=0)
+
+    return logit_diffs, s1_attention_values, s2_attention_values, io_attention_values
 #%%
 TASK = 'ioi'
 model_name = 'EleutherAI/pythia-160m'
@@ -151,7 +235,7 @@ model = HookedTransformer.from_pretrained(
             center_unembed=False,
             center_writing_weights=False,
             fold_ln=False,
-            dtype=torch.bfloat16,
+            #dtype=torch.bfloat16,
             **kwargs,
         )
 
@@ -185,7 +269,7 @@ len(df['target'].unique())
 #%%
 # you need to fill in the name mover heads here!
 # Either manually, or via some earlier automatic finding process
-name_mover_heads = [(8, 10), (8, 2)]
+name_mover_heads = [(8, 1), (8, 2), (8, 10), (9, 4), (9, 6), (10, 7)] #[(8, 10), (8, 2)]
 targeting_nmh = np.logical_or.reduce(np.array([df['target'] == f'a{layer}.h{head}<q>' for layer, head in name_mover_heads]))
 candidate_s2i = df[targeting_nmh]
 candidate_s2i = candidate_s2i[candidate_s2i['in_circuit'] == True]
@@ -196,7 +280,6 @@ candidate_list = [convert_head_names_to_tuple(c) for c in candidate_list if (c[0
 baseline_logit_diffs, end_s2_attention_values, baseline_nmh_s1_attention_values, new_logit_diffs, new_nmh_s1_attention_values = S2I_head_metrics(model, ioi_dataset, candidate_list, name_mover_heads, batch_size)
 
 # %%
-
 # our three measures are thus:
 
 # attention (higher is better)
@@ -212,4 +295,21 @@ print(candidate_list)
 print(s2i_s2_attention)
 print(logit_diff_change)
 print(nmh_s1_attention_change)
+# %%
+s2i_heads = [(7,9), (7,2), (6,6), (6,5),]
+logit_diffs, s1_attention_values, s2_attention_values, io_attention_values = S2I_token_pos(model, ioi_dataset, s2i_heads, name_mover_heads, batch_size)
+# %%
+patch_dataset_names = ['token_same_pos_same', 'token_diff_pos_same', 'token_oppo_pos_same', 'token_same_pos_oppo', 'token_diff_pos_oppo', 'token_oppo_pos_oppo']
+for dataset_name in patch_dataset_names:
+    print(dataset_name)
+    print(logit_diffs[dataset_name].mean())
+# %%
+for dataset_name in patch_dataset_names:
+    print(dataset_name)
+    # should be high with pos = same, low with pos = diff
+    print(io_attention_values[dataset_name].mean())
+    # should be low with pos = same, high with pos = diff
+    print(s1_attention_values[dataset_name].mean())
+    # shouldn't change much
+    print(s2_attention_values[dataset_name].mean())
 # %%
