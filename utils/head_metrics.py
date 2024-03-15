@@ -98,7 +98,6 @@ def S2I_head_metrics(model: HookedTransformer, ioi_dataset, potential_s2i_list: 
             def make_s2i(layer, head):
                 return Node(f'blocks.{layer}.attn.hook_z', layer, head)
             def make_nmh(layer, head):
-                print(f"Making NMH node for layer {layer} and head {head}")
                 return Node(f'blocks.{layer}.hook_q_input', layer, head)
             
             new_logits = path_patch(model, toks, abc_batch['toks'], make_s2i(s2i_layer, s2i_head), [make_nmh(nmh_layer, nmh_head) for nmh_layer, nmh_head in NMH_list], lambda x: x, seq_pos=end_pos)[torch.arange(len(toks)), end_pos]
