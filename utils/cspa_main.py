@@ -63,8 +63,7 @@ def load_model_for_cspa(
         revision = f"step{checkpoint}"
         source_model = AutoModelForCausalLM.from_pretrained(
            variant, revision=revision, cache_dir=cache
-        ).to(device) #.to(torch.bfloat16)
-        print(f"Model on device: {source_model.device}")
+        ).to("cpu") #.to(torch.bfloat16)
         print(f"Loaded model {variant} at {revision}; now loading into HookedTransformer")
         model = HookedTransformer.from_pretrained(
             base_model,
