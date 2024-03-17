@@ -78,7 +78,7 @@ def get_ckpts(schedule):
         )
     elif schedule == "late_start_all":
         ckpts = (
-            [i * 1000 for i in range(1, 144)]
+            [i * 1000 for i in range(4, 144)]
         )
     elif schedule == "custom":
         ckpts = []
