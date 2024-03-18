@@ -1,12 +1,16 @@
+import einops
 from typing import Tuple, List
 from functools import partial
+from typing import Dict, List
 
-import numpy as np 
 import torch
+import numpy as np 
 from torch.utils.data import DataLoader
 from transformer_lens import HookedTransformer
 
-import einops
+import pandas as pd
+import plotly.express as px
+from chart_studio import plotly as py
 
 from utils.backup_analysis import compute_copy_score
 
@@ -296,3 +300,72 @@ def evaluate_induction_scores(model, checkpoint_df):
         'prev_token_scores': prev_token_scores, 
         'duplicate_token_scores': duplicate_token_scores
     }
+
+
+def plot_head_circuit_scores(
+        model_name: str, 
+        checkpoint_dict: Dict[int, np.ndarray], 
+        title: str, 
+        limit_to_list: List = None, 
+        upload=False,
+        y_label='Metric Value', 
+        range_y=None
+    ) -> pd.DataFrame:
+    """
+    Plot the circuit metrics scores for attention heads across checkpoints.
+
+   direct_effect_scoresrgs:
+        model_name (str): The name of the model for titling the plot.
+        checkpoint_dict (Dict[int, np.ndarray]): A dictionary mapping checkpoints to numpy arrays of head attributions.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the plot data.
+    """
+    plot_data = []
+
+    # Iterate through each checkpoint
+    for checkpoint, array in checkpoint_dict.items():
+        # Iterate through each layer and head in the array
+        for layer in range(array.shape[0]):
+            for head in range(array.shape[1]):
+                condition = True
+                if limit_to_list:
+                    condition = (layer, head) in limit_to_list
+                if array[layer, head] != 0 and condition:
+                    # Append the data for plotting
+                    plot_data.append({
+                        'Checkpoint': checkpoint,
+                        'Layer-Head': f'Layer {layer}-Head {head}',
+                        'Layer': layer,
+                        'Head': head,
+                        'Value': array[layer, head]
+                    })
+
+    # Convert to DataFrame
+    df = pd.DataFrame(plot_data)
+
+    # Plot the data
+    fig = px.line(
+        df,
+        x='Checkpoint',
+        y='Value',
+        color='Layer-Head',
+        # limit the y-axis range
+        range_y=range_y,
+        title=title,
+        labels={'Checkpoint': 'Checkpoint', 'Value': 'Metric Value'}
+    )
+    
+    fig.update_layout(
+        xaxis_title='Checkpoint',
+        yaxis_title=y_label,
+        legend_title='Attention Head',
+        #legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+
+    if upload:
+        url = py.plot(fig, filename=title, auto_open=True)
+        print(f"Plot uploaded to {url}")
+    fig.show()
+
+    return df
