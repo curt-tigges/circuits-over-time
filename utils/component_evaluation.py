@@ -135,7 +135,8 @@ def evaluate_direct_effect_heads(model, edge_df, dataset, verbose=False):
 
     head_data['copy_suppression_scores'] = torch.zeros((model.cfg.n_layers, model.cfg.n_heads))
     for layer, head in head_list:
-        head_data['copy_suppression_scores'][layer, head] = get_cspa_for_head(model, DATA_TOKS, cspa_semantic_dict, layer, head, verbose=verbose)
+        if layer > 1:
+            head_data['copy_suppression_scores'][layer, head] = get_cspa_for_head(model, DATA_TOKS, cspa_semantic_dict, layer, head, verbose=verbose)
 
     model.cfg.use_split_qkv_input = True
     

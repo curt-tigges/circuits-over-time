@@ -131,7 +131,7 @@ def main(args):
         if checkpoint in components_over_time and not overwrite:
             continue
 
-
+        print(f"Processing checkpoint {checkpoint}")
         model = load_model(BASE_MODEL, VARIANT, checkpoint, CACHE)
         checkpoint_df = df[df['checkpoint'] == checkpoint].copy()
         component_scores = dict()
