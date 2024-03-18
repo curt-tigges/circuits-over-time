@@ -117,6 +117,9 @@ def evaluate_direct_effect_heads(model, edge_df, dataset, verbose=False):
     head_list = direct_effect_heads['source'].unique().tolist()
     head_list = [convert_head_names_to_tuple(c) for c in head_list if (c[0] != 'm' and c != 'input')]
 
+    if len(head_list) == 0:
+        return None
+
     head_data = dict()
 
 

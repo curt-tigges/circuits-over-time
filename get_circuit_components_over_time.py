@@ -138,7 +138,11 @@ def main(args):
         model_heads = dict()
 
         component_scores['direct_effect_scores'] = evaluate_direct_effect_heads(model, checkpoint_df, ioi_dataset, verbose=False)
-        nmh_list = filter_name_movers(component_scores['direct_effect_scores'], copy_score_threshold=10)
+        
+        if component_scores['direct_effect_scores'] is not None:
+            nmh_list = filter_name_movers(component_scores['direct_effect_scores'], copy_score_threshold=10)
+        else:
+            nmh_list = []
         
         model_heads['nmh'] = nmh_list
         print(f"Found {len(nmh_list)} NMHs")
