@@ -435,3 +435,55 @@ def write_result(model, ABLATION_TYPE, model_name = 'pythia-160m', FOLDER_TO_WRI
         pickle.dump(thresholded_count, f)
     # %%
     fig.write_image(f"{FOLDER_TO_WRITE_GRAPHS_TO}/{ablation_str}_{model_name}_de_vs_cre.png")
+
+
+def write_result_dicts(
+        model, 
+        ABLATION_TYPE, 
+        model_shortname = 'pythia-160m',
+        checkpoint = 143000, 
+        FOLDER_TO_WRITE_GRAPHS_TO = "sr_over_time/plots/pythia-160m/", 
+        FOLDER_TO_STORE_DICTS= "sr_over_time/data/pythia-160m/",
+        overwrite = False
+    ):
+
+    # check if dict exists
+    if os.path.exists(FOLDER_TO_STORE_DICTS + f"{ABLATION_TYPE}_results_dict.pt"):
+        # load the dict
+        results_dict = torch.load(FOLDER_TO_STORE_DICTS + f"{ABLATION_TYPE}_results_dict.pt")
+    else:
+        results_dict = {}
+
+    # check if the checkpoint is already in the dict
+    if checkpoint in results_dict and not overwrite:
+        thresholded_de, thresholded_cil, thresholded_count = results_dict[checkpoint]['thresholded_de'], results_dict[checkpoint]['thresholded_cil'], results_dict[checkpoint]['thresholded_count']
+    else:
+        results_dict[checkpoint] = {}
+        thresholded_de, thresholded_cil, thresholded_count = generate_results(model, ABLATION_TYPE)
+        results_dict[checkpoint]['thresholded_de'] = thresholded_de
+        results_dict[checkpoint]['thresholded_cil'] = thresholded_cil
+        results_dict[checkpoint]['thresholded_count'] = thresholded_count
+    # %%
+    #gpt_new_plot_thresholded_de_vs_cre(thresholded_de, thresholded_cil, THRESHOLDS, True, layout_horizontal=False)
+    #gpt_new_plot_thresholded_de_vs_cre(thresholded_de, thresholded_cil, THRESHOLDS, True, layout_horizontal=True)
+    # %%
+    # capitalize first char
+    ablation_str = ABLATION_TYPE.capitalize()
+    
+    fig = create_layered_scatter(thresholded_de[0], thresholded_cil[0], model, "Direct Effect of Component", "Change in Logits Upon Ablation", f"Effect of {ablation_str}-Ablating Attention Heads in {model_shortname}")
+    # %%
+
+    #type(create_layered_scatter(thresholded_de[0], thresholded_cil[0], model, "Direct Effect of Component", "Change in Logits Upon Ablation", f"Effect of {ablation_type}-Ablating Attention Heads in {model_name}"))
+    # %%
+    #fig.write_html(FOLDER_TO_WRITE_GRAPHS_TO + f"simple_plot_graphs/{ablation_str}_{safe_model_name}_de_vs_cre.html")
+    # %% Store the tensors as pickles
+    type_modifier = "ZERO_" if ABLATION_TYPE == "zero" else ("MEAN_" if ABLATION_TYPE == "mean" else "")
+
+    THRESHOLDS = [0.1 * i for i in range(0,12)]           
+    # Assuming thresholded_de, thresholded_cil, thresholded_count, model_name are all defined above
+    thresholds_str = "_".join(map(str, THRESHOLDS))  # Converts thresholds list to a string
+    # Save the results_dict
+    torch.save(results_dict, FOLDER_TO_STORE_DICTS + f"{ABLATION_TYPE}_results_dict.pt")
+    
+    # %%
+    fig.write_image(f"{FOLDER_TO_WRITE_GRAPHS_TO}/{ablation_str}_{model_shortname}_de_vs_cre.png")
