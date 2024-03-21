@@ -420,7 +420,8 @@ def write_result(model, ABLATION_TYPE, model_name = 'pythia-160m', FOLDER_TO_WRI
     #fig.write_html(FOLDER_TO_WRITE_GRAPHS_TO + f"simple_plot_graphs/{ablation_str}_{safe_model_name}_de_vs_cre.html")
     # %% Store the tensors as pickles
     type_modifier = "ZERO_" if ABLATION_TYPE == "zero" else ("MEAN_" if ABLATION_TYPE == "mean" else "")
-                    
+
+    THRESHOLDS = [0.1 * i for i in range(0,12)]           
     # Assuming thresholded_de, thresholded_cil, thresholded_count, model_name are all defined above
     thresholds_str = "_".join(map(str, THRESHOLDS))  # Converts thresholds list to a string
     # Serialize and save thresholded_de
