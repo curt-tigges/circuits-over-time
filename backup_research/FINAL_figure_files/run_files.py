@@ -27,8 +27,8 @@ for k in checkpoints:
     #model_name = 'pythia-160m '
     model.set_use_attn_result(False)
 
-    FOLDER_TO_WRITE_GRAPHS_TO = f'self_repair/figures/new_self_repair_graph/pythia-160m'
-    FOLDER_TO_STORE_PICKLES= f"self_repair_pickle_storage/new_graph_pickle/pythia-160m"
+    FOLDER_TO_WRITE_GRAPHS_TO = f'self_repair/figures/new_self_repair_graph/pythia-160m/'
+    FOLDER_TO_STORE_PICKLES= f"self_repair_pickle_storage/new_graph_pickle/pythia-160m/"
     os.makedirs(FOLDER_TO_WRITE_GRAPHS_TO, exist_ok = True) 
     os.makedirs(FOLDER_TO_STORE_PICKLES, exist_ok = True)
     ABLATION_TYPE = 'sample'
