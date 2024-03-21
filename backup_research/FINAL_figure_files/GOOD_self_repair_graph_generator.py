@@ -421,7 +421,7 @@ def write_result(model, ABLATION_TYPE, model_name = 'pythia-160m', FOLDER_TO_WRI
     # %% Store the tensors as pickles
     type_modifier = "ZERO_" if ABLATION_TYPE == "zero" else ("MEAN_" if ABLATION_TYPE == "mean" else "")
 
-    THRESHOLDS = [0.1 * i for i in range(0,12)]           
+    THRESHOLDS =[0.0] #[0.1 * i for i in range(0,12)]           
     # Assuming thresholded_de, thresholded_cil, thresholded_count, model_name are all defined above
     thresholds_str = "_".join(map(str, THRESHOLDS))  # Converts thresholds list to a string
     # Serialize and save thresholded_de
@@ -434,4 +434,4 @@ def write_result(model, ABLATION_TYPE, model_name = 'pythia-160m', FOLDER_TO_WRI
     with open(FOLDER_TO_STORE_PICKLES + type_modifier + f"{model_name}_thresholded_count_{thresholds_str}.pkl", "wb") as f:
         pickle.dump(thresholded_count, f)
     # %%
-    fig.write_image(f"{FOLDER_TO_WRITE_GRAPHS_TO}/simple_plot_graphs/{ablation_str}_{model_name}_de_vs_cre.png")
+    fig.write_image(f"{FOLDER_TO_WRITE_GRAPHS_TO}/{ablation_str}_{model_name}_de_vs_cre.png")
