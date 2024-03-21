@@ -302,13 +302,22 @@ def evaluate_induction_scores(model, checkpoint_df):
     }
 
 
+def convert_title_to_filename(title: str):
+    # replace spaces with dashes, remove parentheses, and make lowercase
+    return title.replace(' ', '-').replace('(', '').replace(')', '').lower()
+
+
 def plot_head_circuit_scores(
         model_name: str, 
         checkpoint_dict: Dict[int, np.ndarray], 
         title: str, 
         limit_to_list: List = None, 
         upload=False,
-        y_label='Metric Value', 
+        y_label='Metric Value',
+        show_legend=True, 
+        legend_font_size=16, 
+        axis_label_size=16, 
+        disable_title=False,
         range_y=None
     ) -> pd.DataFrame:
     """
@@ -321,6 +330,12 @@ def plot_head_circuit_scores(
     Returns:
         pd.DataFrame: A DataFrame containing the plot data.
     """
+    # Define axis title style
+    axis_title_style = dict(size=axis_label_size)
+    
+    # Determine display title based on `disable_title` flag
+    display_title = None if disable_title else title
+
     plot_data = []
 
     # Iterate through each checkpoint
@@ -352,14 +367,24 @@ def plot_head_circuit_scores(
         color='Layer-Head',
         # limit the y-axis range
         range_y=range_y,
-        title=title,
+        title=display_title,
         labels={'Checkpoint': 'Checkpoint', 'Value': 'Metric Value'}
     )
     
     fig.update_layout(
-        xaxis_title='Checkpoint',
-        yaxis_title=y_label,
-        legend_title='Attention Head',
+        xaxis=dict(
+            title="Training Checkpoint", 
+            title_font=axis_title_style
+        ),
+        yaxis=dict( 
+            title=y_label, 
+            title_font=axis_title_style
+        ),
+        showlegend=show_legend,
+        legend=dict(
+            font=dict(size=legend_font_size),
+            title_text='Attention Head',
+        )
         #legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
 
@@ -367,5 +392,8 @@ def plot_head_circuit_scores(
         url = py.plot(fig, filename=title, auto_open=True)
         print(f"Plot uploaded to {url}")
     fig.show()
+
+    filename = "results/plots/" + convert_title_to_filename(title) + ".pdf"
+    fig.write_image(filename, format='pdf', width=700, height=400, engine="kaleido")
 
     return df

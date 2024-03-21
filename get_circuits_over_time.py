@@ -449,7 +449,7 @@ def main(args):
         dataloader = DataLoader(ds, batch_size=args.batch_size, collate_fn=collate_fn)
         
         # load the baseline dict
-        if os.path.exists(f"results/graphs/{model_folder}/{task}.json"):
+        if os.path.exists(f"results/baselines/{model_folder}/{task}.json"):
             baseline_dict = json.load(open(f"results/baselines/{model_folder}/{task}.json"))
         else:
             baseline_dict = dict()
