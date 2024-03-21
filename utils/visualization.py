@@ -499,35 +499,75 @@ def hist_p(tensor, renderer=None, **kwargs):
     fig.show(renderer)
 
 
-def plot_graph_metric(df, metric, perf_metric_dict, title, y_range, x_axis_col='checkpoint', log_x=True):
-    # Add a new column for the performance metric by mapping the checkpoint_2 values using the perf_metric_dict
-    df['perf_metric'] = df[x_axis_col].map(perf_metric_dict)
+def convert_title_to_filename(title: str):
+    # replace spaces with dashes, remove parentheses, and make lowercase
+    return title.replace(' ', '-').replace('(', '').replace(')', '').lower()
 
-    # Interpolate missing values
-    df['perf_metric'] = df['perf_metric'].interpolate(method='linear')
+def plot_graph_metric(
+        df, 
+        metric, 
+        perf_metric_dict, 
+        title,
+        left_y_title, 
+        y_range, 
+        x_axis_col='checkpoint', 
+        log_x=True, 
+        legend_font_size=16, 
+        axis_label_size=16, 
+        disable_title=False,
+        metric_legend_name="Circuit Edges"  # Add a parameter for the custom metric legend name
+    ):
+    # Define axis title style
+    axis_title_style = dict(size=axis_label_size)
+    
+    # Determine display title based on `disable_title` flag
+    display_title = None if disable_title else title
 
-    fig = px.line(df, width=1200, x=x_axis_col, y=[metric], title=title, log_x=log_x)
+    # Add a new column for the performance metric by mapping the checkpoint values using the perf_metric_dict
+    df['perf_metric'] = df[x_axis_col].map(perf_metric_dict).interpolate(method='linear')
 
-    # Specify colors for each line
-    colors = {metric: 'lightblue', 'perf_metric': 'black'}
+    # Create a copy of the dataframe with the 'metric' column renamed for the legend
+    plot_df = df.rename(columns={metric: metric_legend_name})
 
-    # Update each trace with the specified color
-    for i, trace in enumerate(fig.data):
-        fig.data[i].update(line=dict(color=colors[trace.name]))
+    # Plot with plotly express, using the renamed dataframe
+    fig = px.line(plot_df, width=1200, x=x_axis_col, y=[metric_legend_name], title=display_title, log_x=log_x)
 
-
-    # Convert to a go.Figure to add secondary Y-axis features and add the performance metric line
-    fig.update_layout(
-        yaxis=dict(range=[0, y_range], title=metric),
-        yaxis2=dict(range=[0, 5], title="Logit Difference", overlaying="y", side="right", showgrid=False)
-    )
+    # Specify colors for each line and update traces
+    colors = {metric_legend_name: 'lightblue', 'perf_metric': 'black'}
+    for trace in fig.data:
+        trace.update(line=dict(color=colors[trace.name]))
+    
+    # Add the performance metric line with a custom name if necessary
     fig.add_trace(
-        go.Scatter(x=df[x_axis_col], y=df['perf_metric'], name='perf_metric', mode='lines', yaxis='y2', line=dict(color=colors['perf_metric']))
+        go.Scatter(x=df[x_axis_col], y=df['perf_metric'], name='Logit Diff', mode='lines', yaxis='y2', line=dict(color=colors['perf_metric']))
     )
 
-    # Optional: Update the layout if you need to adjust titles or other aesthetics
-    # fig.update_layout(
-    #     yaxis_title=title
-    # )
+    # Consolidate layout updates
+    fig.update_layout(
+        xaxis=dict(
+            title="Training Checkpoint", 
+            title_font=axis_title_style
+        ),
+        yaxis=dict(
+            range=[0, y_range], 
+            title=left_y_title, 
+            title_font=axis_title_style
+        ),
+        yaxis2=dict(
+            range=[0, 6], 
+            title="Logit Difference", 
+            overlaying="y", 
+            side="right", 
+            showgrid=False, 
+            title_font=axis_title_style
+        ),
+        legend=dict(
+            font=dict(size=legend_font_size),
+            title_text="Metrics",
+        )
+    )
 
+    # Display and save the figure
     fig.show()
+    filename = "results/plots/" + convert_title_to_filename(title) + ".pdf"
+    fig.write_image(filename, format='pdf', width=800, height=400, engine="kaleido")
