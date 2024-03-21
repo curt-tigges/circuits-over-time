@@ -46,7 +46,7 @@ from path_patching_cm.path_patching import Node, IterNode, path_patch, act_patch
 from path_patching_cm.ioi_dataset import IOIDataset, NAMES
 
 from data.greater_than_dataset import YearDataset, get_valid_years, get_year_indices
-from data.sentiment_datasets import get_dataset, PromptType
+#from data.sentiment_datasets import get_dataset, PromptType
 
 from functools import partial
 
