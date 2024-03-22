@@ -130,6 +130,55 @@ def S2I_head_metrics(model: HookedTransformer, ioi_dataset, potential_s2i_list: 
     return baseline_logit_diffs, end_s2_attention_values, baseline_nmh_s1_attention_values, new_logit_diffs, new_nmh_s1_attention_values
 
 #%%
+def get_attention_to_ioi_token(
+        model: HookedTransformer, 
+        ioi_dataset: IOIDataset,  
+        head_list: List[Tuple[int, int]], 
+        batch_size
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: 
+    
+
+    ioi_dataloader = DataLoader(ioi_dataset, batch_size=batch_size, collate_fn=partial(collate_fn, device=model.cfg.device))
+    
+    NMH_layers, NMH_heads = (torch.tensor(x, device=model.cfg.device) for x in zip(*head_list))
+
+    logit_diffs = []
+    s1_attention_values = torch.zeros((model.cfg.n_layers, model.cfg.n_heads))
+    s2_attention_values = torch.zeros((model.cfg.n_layers, model.cfg.n_heads))
+    io_attention_values = torch.zeros((model.cfg.n_layers, model.cfg.n_heads))
+
+
+    for batch in ioi_dataloader:
+        toks = batch['toks']
+        io_pos = batch['IO_pos']
+        end_pos = batch['end_pos']
+        s2_pos = batch['S2_pos']
+        s1_pos = batch['S1_pos']
+        s_token_ids = batch['s_token_id']
+        io_token_ids = batch['io_token_id']
+
+        cache, caching_hooks, _ = model.get_caching_hooks(lambda name: 'hook_pattern' in name)
+        with model.hooks(caching_hooks):
+            logits = model(toks)[torch.arange(len(toks)), end_pos]
+
+        s_logits = logits[torch.arange(len(toks)), s_token_ids]
+        io_logits = logits[torch.arange(len(toks)), io_token_ids]
+
+        baseline_logit_diff = io_logits - s_logits 
+        logit_diffs['token_same_pos_same'].append(baseline_logit_diff)
+        
+        attention_patterns = torch.stack([cache[f'blocks.{n}.attn.hook_pattern'] for n in range(model.cfg.n_layers)])  #layer, batch, head, query, key
+        attention_patterns_by_head = attention_patterns[NMH_layers, :, NMH_heads]
+        nmh_s1_attention_value_baseline = attention_patterns_by_head[:, torch.arange(len(toks)), end_pos, s1_pos] # batch layer head
+        nmh_s2_attention_value_baseline = attention_patterns_by_head[:, torch.arange(len(toks)), end_pos, s2_pos] # batch layer head
+        nmh_io_attention_value_baseline = attention_patterns_by_head[:, torch.arange(len(toks)), end_pos, io_pos] # batch layer head
+        s1_attention_values['token_same_pos_same'].append(nmh_s1_attention_value_baseline.transpose(0,1))
+        s2_attention_values['token_same_pos_same'].append(nmh_s2_attention_value_baseline.transpose(0,1))
+        io_attention_values['token_same_pos_same'].append(nmh_io_attention_value_baseline.transpose(0,1))
+
+    return s1_attention_values, s2_attention_values, io_attention_values
+
+
 def S2I_token_pos(model: HookedTransformer, ioi_dataset: IOIDataset, S2I_list: List[Tuple[int, int]],  NMH_list: List[Tuple[int, int]], batch_size): 
     patch_dataset_names = ['token_same_pos_same', 'token_diff_pos_same', 'token_oppo_pos_same', 'token_same_pos_oppo', 'token_diff_pos_oppo', 'token_oppo_pos_oppo']
     

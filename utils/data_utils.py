@@ -128,13 +128,13 @@ def _ioi_metric_noising(
         return ((patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)).item()
 
 
-def generate_data_and_caches(model: HookedTransformer, N: int, verbose: bool = False, seed: int = 42):
+def generate_data_and_caches(model: HookedTransformer, N: int, verbose: bool = False, seed: int = 42, prepend_bos: bool = False):
 
     ioi_dataset = IOIDataset(
         prompt_type="mixed",
         N=N,
         tokenizer=model.tokenizer,
-        prepend_bos=False,
+        prepend_bos=prepend_bos,
         seed=seed,
         device=str(device)
     )
