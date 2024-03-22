@@ -37,6 +37,7 @@ def load_edge_scores_into_dictionary(folder_path, checkpoint=None):
 
         checkpoint_df = pd.DataFrame({'edge': edge_names, 'score': scores, 'in_circuit': circuit_inclusion, 'checkpoint': checkpoint_name})
         all_edges = pd.concat([all_edges, checkpoint_df])
+        print(all_edges)
 
     all_edges = all_edges.sort_values('checkpoint')
 
