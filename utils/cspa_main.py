@@ -177,7 +177,37 @@ def get_cspa_for_model(model, start_layer=2):
 
     return head_results
 
-    
+
+def get_cspa_for_head(model, data_toks, cspa_semantic_dict, layer, head):
+    head_results = torch.zeros((12, 12))
+
+    current_batch_size = 17 # Smaller values so we can check more checkpoints in a reasonable amount of time
+    current_seq_len = 61
+
+    start = time.time()
+    result_mean = get_result_mean([(layer, head)], data_toks[:100, :], model, verbose=True)
+    cspa_results_qk_ov = get_cspa_results_batched(
+        model=model,
+        toks=data_toks[:current_batch_size, :current_seq_len],
+        max_batch_size=1,  # 50,
+        negative_head=(layer, head),
+        interventions=["ov", "qk"],
+        only_keep_negative_components=True,
+        K_unembeddings=0.05,  # most interesting in range 3-8 (out of 80)
+        K_semantic=1,  # either 1 or up to 8 to capture all sem similar
+        semantic_dict=cspa_semantic_dict,
+        result_mean=result_mean,
+        use_cuda=True,
+        verbose=True,
+        compute_s_sstar_dict=False,
+        computation_device="cpu",  # device
+    )
+    head_results[layer, head] = get_performance_recovered(cspa_results_qk_ov)
+
+    print(f"Layer {layer}, head {head} done. Performance: {head_results[layer, head]}")
+
+    return head_results
+
 
 def display_cspa_grids(model_shortname, checkpoint_schedule):
     checkpoint_dict = torch.load(f'results/cspa/{model_shortname}/all_checkpoints.pt')

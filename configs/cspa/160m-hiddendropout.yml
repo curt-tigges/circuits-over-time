@@ -1,5 +1,5 @@
 base_model: pythia-160m
-variant: pythia-160m-hiddendropout
+variant: EleutherAI/pythia-160m-hiddendropout
 cache: model_cache
 checkpoint_schedule:
   - 512
