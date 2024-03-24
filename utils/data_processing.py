@@ -343,8 +343,8 @@ def compute_weighted_jaccard_similarity(df):
         df_2 = df[(df['checkpoint'] == checkpoints[i + 1]) & (df['in_circuit'] == True)]
 
         # Create dictionaries mapping edges to their scores
-        scores_1 = dict(zip(df_1['edge'], df_1['score']))
-        scores_2 = dict(zip(df_2['edge'], df_2['score']))
+        scores_1 = dict(zip(df_1['edge'], df_1['score'].abs()))
+        scores_2 = dict(zip(df_2['edge'], df_2['score'].abs()))
 
         # Calculate the weighted intersection and union
         weighted_intersection = sum(min(scores_1.get(edge, 0), scores_2.get(edge, 0)) for edge in set(scores_1) | set(scores_2))
@@ -430,8 +430,8 @@ def compute_ewma_weighted_jaccard_similarity(df, alpha=0.5):
         df_2 = df[(df['checkpoint'] == checkpoints[i + 1]) & (df['in_circuit'] == True)]
 
         # Create dictionaries mapping edges to their scores
-        scores_1 = dict(zip(df_1['edge'], df_1['score']))
-        scores_2 = dict(zip(df_2['edge'], df_2['score']))
+        scores_1 = dict(zip(df_1['edge'], df_1['score'].abs()))
+        scores_2 = dict(zip(df_2['edge'], df_2['score'].abs()))
 
         # Calculate the weighted intersection and union
         weighted_intersection = sum(min(scores_1.get(edge, 0), scores_2.get(edge, 0)) for edge in set(scores_1) | set(scores_2))
