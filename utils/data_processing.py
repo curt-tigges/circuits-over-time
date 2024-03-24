@@ -330,6 +330,9 @@ def compute_weighted_jaccard_similarity(df):
     # Ensure the dataframe is sorted by checkpoint
     df = df.sort_values(by='checkpoint')
 
+    # Normalize the scores by dividing by the sum of absolute scores within each checkpoint
+    df['normalized_abs_score'] = df.groupby('checkpoint')['score'].transform(lambda x: x.abs() / x.abs().sum())
+
     # Get the unique checkpoints
     checkpoints = df['checkpoint'].unique()
 
@@ -342,9 +345,9 @@ def compute_weighted_jaccard_similarity(df):
         df_1 = df[(df['checkpoint'] == checkpoints[i]) & (df['in_circuit'] == True)]
         df_2 = df[(df['checkpoint'] == checkpoints[i + 1]) & (df['in_circuit'] == True)]
 
-        # Create dictionaries mapping edges to their scores
-        scores_1 = dict(zip(df_1['edge'], df_1['score'].abs()))
-        scores_2 = dict(zip(df_2['edge'], df_2['score'].abs()))
+        # Create dictionaries mapping edges to their normalized absolute scores
+        scores_1 = dict(zip(df_1['edge'], df_1['normalized_abs_score']))
+        scores_2 = dict(zip(df_2['edge'], df_2['normalized_abs_score']))
 
         # Calculate the weighted intersection and union
         weighted_intersection = sum(min(scores_1.get(edge, 0), scores_2.get(edge, 0)) for edge in set(scores_1) | set(scores_2))
@@ -368,6 +371,9 @@ def compute_weighted_jaccard_similarity_to_reference(df, reference_checkpoint):
     # Ensure the dataframe is sorted by checkpoint
     df = df.sort_values(by='checkpoint')
 
+    # Normalize the scores by dividing by the sum of absolute scores within each checkpoint
+    df['normalized_abs_score'] = df.groupby('checkpoint')['score'].transform(lambda x: x.abs() / x.abs().sum())
+
     # Get the unique checkpoints
     checkpoints = df['checkpoint'].unique()
 
@@ -377,20 +383,16 @@ def compute_weighted_jaccard_similarity_to_reference(df, reference_checkpoint):
     # Get the data for the reference checkpoint
     df_reference = df[(df['checkpoint'] == reference_checkpoint) & (df['in_circuit'] == True)]
 
-    # Create a dictionary mapping edges to their scores for the reference checkpoint
-    scores_reference = dict(zip(df_reference['edge'], df_reference['score'].abs()))
+    # Create a dictionary mapping edges to their normalized absolute scores for the reference checkpoint
+    scores_reference = dict(zip(df_reference['edge'], df_reference['normalized_abs_score']))
 
     # Iterate over all checkpoints
     for checkpoint in checkpoints:
-        # Skip the reference checkpoint
-        # if checkpoint == reference_checkpoint:
-        #     continue
-
         # Get the data for the current checkpoint
         df_checkpoint = df[(df['checkpoint'] == checkpoint) & (df['in_circuit'] == True)]
 
-        # Create a dictionary mapping edges to their scores for the current checkpoint
-        scores_checkpoint = dict(zip(df_checkpoint['edge'], df_checkpoint['score'].abs()))
+        # Create a dictionary mapping edges to their normalized absolute scores for the current checkpoint
+        scores_checkpoint = dict(zip(df_checkpoint['edge'], df_checkpoint['normalized_abs_score']))
 
         # Calculate the weighted intersection and union
         weighted_intersection = sum(min(scores_reference.get(edge, 0), scores_checkpoint.get(edge, 0)) for edge in set(scores_reference) | set(scores_checkpoint))
@@ -414,6 +416,9 @@ def compute_ewma_weighted_jaccard_similarity(df, alpha=0.5):
     # Ensure the dataframe is sorted by checkpoint
     df = df.sort_values(by='checkpoint')
 
+    # Normalize the scores by dividing by the sum of absolute scores within each checkpoint
+    df['normalized_abs_score'] = df.groupby('checkpoint')['score'].transform(lambda x: x.abs() / x.abs().sum())
+
     # Get the unique checkpoints
     checkpoints = df['checkpoint'].unique()
 
@@ -429,9 +434,9 @@ def compute_ewma_weighted_jaccard_similarity(df, alpha=0.5):
         df_1 = df[(df['checkpoint'] == checkpoints[i]) & (df['in_circuit'] == True)]
         df_2 = df[(df['checkpoint'] == checkpoints[i + 1]) & (df['in_circuit'] == True)]
 
-        # Create dictionaries mapping edges to their scores
-        scores_1 = dict(zip(df_1['edge'], df_1['score'].abs()))
-        scores_2 = dict(zip(df_2['edge'], df_2['score'].abs()))
+        # Create dictionaries mapping edges to their normalized absolute scores
+        scores_1 = dict(zip(df_1['edge'], df_1['normalized_abs_score']))
+        scores_2 = dict(zip(df_2['edge'], df_2['normalized_abs_score']))
 
         # Calculate the weighted intersection and union
         weighted_intersection = sum(min(scores_1.get(edge, 0), scores_2.get(edge, 0)) for edge in set(scores_1) | set(scores_2))
