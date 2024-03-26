@@ -19,11 +19,11 @@ sys.path.append("..")
 from utils.backup_analysis import (
     load_model,
 )
-checkpoints = [512, 1000, 2000, 3000, 5000, 10000, 30000, 90000, 143000]
+checkpoints = [256, 512, 1000, 2000, 3000, 5000, 10000, 30000, 60000, 90000, 143000]
 torch.set_grad_enabled(False)
 
 BASE_MODEL = "pythia-160m"
-VARIANT = "EleutherAI/pythia-160m-alldropout"
+VARIANT = "EleutherAI/pythia-160m-hiddendropout"
 MODEL_SHORTNAME = BASE_MODEL if not VARIANT else VARIANT[11:]
 CACHE = "model_cache"
 
