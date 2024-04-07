@@ -240,6 +240,38 @@ class UniversalPatchingDataset():
         answer_tokens, group_flags = prepare_indices_for_prob_diff(model.tokenizer, torch.Tensor(ds.years_YY))
 
         return cls(ds.good_toks, ds.bad_toks, answer_tokens, 12, group_flags=group_flags)
+    
+    @classmethod
+    def from_csv(cls, model: HookedTransformer, filename, clean_col, corrupted_col, clean_label_col, corrupted_label_col, size: int = 1000):
+        df = pd.read_csv(filename).head(size)
+
+        good_toks = model.tokenizer(df[clean_col].tolist(), return_tensors='pt',padding='longest')
+        bad_toks = model.tokenizer(df[corrupted_col].tolist(), return_tensors='pt',padding='longest')
+
+        good_lens = good_toks['attention_mask'].sum(-1)
+        bad_lens = bad_toks['attention_mask'].sum(-1)
+        assert torch.all(good_lens == bad_lens)
+
+        max_len = good_lens.max()
+        end_idx = good_lens - 1
+
+        clean_label_idx = torch.tensor(df[clean_label_col].tolist())
+        corrupted_label_idx = torch.tensor(df[corrupted_label_col].tolist())
+        answer_tokens = torch.stack([clean_label_idx, corrupted_label_idx], dim=1)
+
+        return cls(good_toks['input_ids'], bad_toks['input_ids'], answer_tokens, max_len, end_idx)
+
+    @classmethod
+    def from_capital_country(cls, model: HookedTransformer, size: int = 1000):
+        return cls.from_csv(model, 'data/capital-country.csv', 'clean', 'corrupted', 'country_idx', 'corrupted_country_idx', size=size)
+    
+    @classmethod
+    def from_country_capital(cls, model: HookedTransformer, size: int = 1000):
+        return cls.from_csv(model, 'data/country-capital.csv', 'clean', 'corrupted', 'capital_idx', 'corrupted_capital_idx', size=size)
+        
+    @classmethod
+    def from_gender_bias(cls, model: HookedTransformer, size: int = 1000):
+        return cls.from_csv(model, 'data/gender-bias.csv', 'clean', 'corrupted', 'clean_answer_idx', 'corrupted_answer_idx', size=size)
 
     @classmethod
     def from_sentiment(cls, model, task_type: str):
