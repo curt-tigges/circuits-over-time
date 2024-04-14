@@ -283,7 +283,7 @@ class UniversalPatchingDataset():
     
     @classmethod
     def from_csv(cls, model: HookedTransformer, filename, clean_col, corrupted_col, clean_label_col, corrupted_label_col, size: int = 1000):
-        df = pd.read_csv(filename).head(size)
+        df = pd.read_csv(filename).sample(frac=1).head(size)
 
         good_toks = model.tokenizer(df[clean_col].tolist(), return_tensors='pt',padding='longest')
         bad_toks = model.tokenizer(df[corrupted_col].tolist(), return_tensors='pt',padding='longest')
@@ -313,6 +313,14 @@ class UniversalPatchingDataset():
     def from_gender_bias(cls, model: HookedTransformer, size: int = 1000):
         return cls.from_csv(model, 'data/gender-bias.csv', 'clean', 'corrupted', 'clean_answer_idx', 'corrupted_answer_idx', size=size)
     
+    @classmethod
+    def from_gender_pronoun(cls, model: HookedTransformer, size: int = 1000):
+        return cls.from_csv(model, 'data/gender-pronoun.csv', 'clean', 'corrupted', 'clean_answer_idx', 'corrupted_answer_idx', size=size)
+
+    @classmethod
+    def from_gender_both(cls, model: HookedTransformer, size: int = 1000):
+        return cls.from_csv(model, 'data/gender-both.csv', 'clean', 'corrupted', 'clean_answer_idx', 'corrupted_answer_idx', size=size)
+
     @classmethod
     def from_sva(cls, model, size: int = 1000):
         clean, corrupted, labels, max_len, positions = create_sva_dataset(model.tokenizer, size)
