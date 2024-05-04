@@ -49,8 +49,11 @@ else:
 import pandas as pd
 import plotly.express as px
 # Temporarily disabled
-#import circuitsvis as cv
+import circuitsvis as cv
 
+
+# ==============================================================================
+# This file is used for visualizations used for analysis and active experimentation 
 
 def plot_attention_heads(tensor, title="", top_n=0, range_x=[0, 2.5], threshold=0.02):
     # convert the PyTorch tensor to a numpy array
@@ -498,6 +501,8 @@ def hist_p(tensor, renderer=None, **kwargs):
             fig.data[i]["name"] = names[i // 2]
     fig.show(renderer)
 
+
+# TODO: Remove
 
 def convert_title_to_filename(title: str):
     # replace spaces with dashes, remove parentheses, and make lowercase

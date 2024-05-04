@@ -1,0 +1,8 @@
+base_model: pythia-70m
+variant: ~
+task: ioi
+cache: model_cache
+dataset_size: 70
+batch_size: 70
+checkpoint_schedule: late_start_all
+overwrite: false

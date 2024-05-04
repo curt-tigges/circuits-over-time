@@ -5,4 +5,5 @@ cache: model_cache
 dataset_size: 70
 batch_size: 70
 checkpoint_schedule: late_start_all
+device: cuda:4
 overwrite: false
