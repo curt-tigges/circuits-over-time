@@ -38,7 +38,13 @@ def read_config(config_path):
 
 def main(args):
 
+    if 'device' in args:
+        device = args.device
+    else:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
     torch.set_grad_enabled(False)
+    print(f"Using device: {device}")
 
     config = read_config(args.config)
 

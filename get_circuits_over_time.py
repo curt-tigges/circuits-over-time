@@ -176,6 +176,15 @@ def get_ckpts(schedule):
         ckpts = (
             [i * 1000 for i in range(1, 144)]
         )
+    elif schedule == "sparse":
+        ckpts = (
+            [2**i for i in range(8, 10)]
+            + [i * 1000 for i in range(1, 10)]
+            + [i * 5000 for i in range(2, 10)]
+            + [i * 10000 for i in range(5, 10)]
+            + [i * 20000 for i in range(5, 8)]
+            + [143000]
+        )
     elif schedule == "custom":
         ckpts = []
     else:
@@ -224,18 +233,6 @@ def get_data_and_metrics(
             mode="group_sum"
         )
         metric = CircuitMetric("prob_diff", prob_diff_metric, eap = eap)
-
-    elif task_name == "sentiment_cont":
-        # Get data
-        ds = UniversalPatchingDataset.from_sentiment(model, "cont")
-        logit_diff_metric = partial(compute_logit_diff, mode="pairs")
-        metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
-
-    elif task_name == "sentiment_class":
-        # Get data
-        ds = UniversalPatchingDataset.from_sentiment(model, "class")
-        logit_diff_metric = partial(compute_logit_diff,  mode="pairs")
-        metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
 
     return ds, metric
 
@@ -408,6 +405,7 @@ def main(args):
     schedule = args.ckpt_schedule
     task = args.task
     ckpts = get_ckpts(schedule)
+    print(f"Checkpoints: {ckpts}")
     alt = args.alt_model
     model_folder = f"{alt[11:]}" if alt is not None else f"{args.model}"
     if args.custom_schedule:

@@ -23,6 +23,12 @@ from utils.component_evaluation import (
     evaluate_induction_scores
 )
 
+def print_gpu_memory_usage(label="", device="cuda:0"):
+    allocated = torch.cuda.memory_allocated(device) / (1024 ** 3)  # Convert bytes to GB
+    reserved = torch.cuda.memory_reserved(device) / (1024 ** 3)
+    print(f"{label} - Memory Allocated: {allocated:.2f} GB, Memory Reserved: {reserved:.2f} GB")
+
+
 def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download & assess model checkpoints")
     parser.add_argument(
@@ -80,6 +86,15 @@ def get_ckpts(schedule):
         ckpts = (
             [i * 1000 for i in range(4, 144)]
         )
+    elif schedule == "sparse":
+        ckpts = (
+            [2**i for i in range(8, 10)]
+            + [i * 1000 for i in range(1, 10)]
+            + [i * 5000 for i in range(2, 10)]
+            + [i * 10000 for i in range(5, 10)]
+            + [i * 20000 for i in range(5, 8)]
+            + [143000]
+        )
     elif schedule == "custom":
         ckpts = []
     else:
@@ -103,6 +118,10 @@ def main(args):
     DATASET_SIZE = config['dataset_size']
     BATCH_SIZE = config['batch_size']
     CHECKPOINT_SCHEDULE = get_ckpts(config['checkpoint_schedule'])
+    if 'device' in config:
+        DEVICE = config['device']
+    else:
+        DEVICE = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     overwrite = config['overwrite']
     
     # load circuit data
@@ -115,8 +134,11 @@ def main(args):
     df[['source', 'target']] = df['edge'].str.split('->', expand=True)
 
     # load model and dataset
-    model = load_model(BASE_MODEL, VARIANT, 143000, CACHE)
+    model = load_model(BASE_MODEL, VARIANT, 143000, CACHE, DEVICE, large_model=True)
+    model.tokenizer.add_bos_token = False
+    print_gpu_memory_usage("After loading model")
     ioi_dataset, abc_dataset = generate_data_and_caches(model, DATASET_SIZE, verbose=True, prepend_bos=True)
+    print_gpu_memory_usage("After generating data")
 
     for checkpoint in CHECKPOINT_SCHEDULE:
         # check if file exists; if not, create
@@ -132,12 +154,13 @@ def main(args):
             continue
 
         print(f"Processing checkpoint {checkpoint}")
-        model = load_model(BASE_MODEL, VARIANT, checkpoint, CACHE)
+        model = load_model(BASE_MODEL, VARIANT, checkpoint, CACHE, DEVICE, large_model=True)
+        print_gpu_memory_usage("After loading first checkpoint model")
         checkpoint_df = df[df['checkpoint'] == checkpoint].copy()
         component_scores = dict()
         model_heads = dict()
 
-        component_scores['direct_effect_scores'] = evaluate_direct_effect_heads(model, checkpoint_df, ioi_dataset, verbose=False)
+        component_scores['direct_effect_scores'] = evaluate_direct_effect_heads(model, checkpoint_df, ioi_dataset, verbose=False, cuda_device=int(DEVICE[-1]), batch_size=BATCH_SIZE)
         
         if component_scores['direct_effect_scores'] is not None:
             nmh_list = filter_name_movers(component_scores['direct_effect_scores'], copy_score_threshold=10)
