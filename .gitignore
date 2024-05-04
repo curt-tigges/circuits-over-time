@@ -6,4 +6,4 @@ step142000/
 .ipynb_checkpoints/
 chart_studio_api_key.txt
 auth/
-results/
+results/graphs/**/raw/
