@@ -46,7 +46,7 @@ from path_patching_cm.path_patching import Node, IterNode, path_patch, act_patch
 from path_patching_cm.ioi_dataset import IOIDataset, NAMES
 
 from data.greater_than_dataset import YearDataset, get_valid_years, get_year_indices
-from data.sentiment_datasets import get_dataset, PromptType
+#from data.sentiment_datasets import get_dataset, PromptType
 
 from functools import partial
 
@@ -128,13 +128,13 @@ def _ioi_metric_noising(
         return ((patched_logit_diff - clean_logit_diff) / (clean_logit_diff - corrupted_logit_diff)).item()
 
 
-def generate_data_and_caches(model: HookedTransformer, N: int, verbose: bool = False, seed: int = 42):
+def generate_data_and_caches(model: HookedTransformer, N: int, verbose: bool = False, seed: int = 42, prepend_bos: bool = False):
 
     ioi_dataset = IOIDataset(
         prompt_type="mixed",
         N=N,
         tokenizer=model.tokenizer,
-        prepend_bos=False,
+        prepend_bos=prepend_bos,
         seed=seed,
         device=str(device)
     )
@@ -228,6 +228,7 @@ class UniversalPatchingDataset():
 
     @classmethod
     def from_ioi(cls, model, size: int = 70):
+        model.tokenizer.add_bos_token = False
         ioi_dataset, abc_dataset = generate_data_and_caches(model, size, verbose=True)
         answer_tokens = torch.cat((torch.Tensor(ioi_dataset.io_tokenIDs).unsqueeze(1), torch.Tensor(ioi_dataset.s_tokenIDs).unsqueeze(1)), dim=1).to(device)
         answer_tokens = answer_tokens.long()
@@ -241,18 +242,6 @@ class UniversalPatchingDataset():
 
         return cls(ds.good_toks, ds.bad_toks, answer_tokens, 12, group_flags=group_flags)
 
-    @classmethod
-    def from_sentiment(cls, model, task_type: str):
-        if task_type == "cont":
-            ds_type = PromptType.COMPLETION_2
-        elif task_type == "class":
-            ds_type = PromptType.CLASSIFICATION_4
-        else:
-            raise ValueError(f"task_type must be 'cont' or 'class', got {task_type}")
-
-        ds = get_dataset(model, device, prompt_type=ds_type)
-        
-        return cls(ds.clean_tokens, ds.corrupted_tokens, ds.answer_tokens, 28)
 
     @classmethod
     def from_sst(cls, model, size: int = 1000):

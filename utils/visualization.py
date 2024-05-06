@@ -48,8 +48,12 @@ else:
 
 import pandas as pd
 import plotly.express as px
+# Temporarily disabled
 import circuitsvis as cv
 
+
+# ==============================================================================
+# This file is used for visualizations used for analysis and active experimentation 
 
 def plot_attention_heads(tensor, title="", top_n=0, range_x=[0, 2.5], threshold=0.02):
     # convert the PyTorch tensor to a numpy array
@@ -174,21 +178,21 @@ def get_attn_pattern(
 
 
 
-def plot_attention(
-    model: HookedTransformer, prompt: str, attn_heads: List[Tuple[int]], 
-    cache: ActivationCache = None, weighted: bool = True, 
-    max_value: float = 1.0, min_value: float = 0.0
-):
-    tokens, attention_pattern, head_name_list = get_attn_pattern(
-        model, prompt, attn_heads, cache, weighted
-    )
-    return cv.attention.attention_heads(
-        tokens=tokens, 
-        attention=attention_pattern, 
-        attention_head_names=head_name_list,
-        max_value=max_value,
-        min_value=min_value,
-    )
+# def plot_attention(
+#     model: HookedTransformer, prompt: str, attn_heads: List[Tuple[int]], 
+#     cache: ActivationCache = None, weighted: bool = True, 
+#     max_value: float = 1.0, min_value: float = 0.0
+# ):
+#     tokens, attention_pattern, head_name_list = get_attn_pattern(
+#         model, prompt, attn_heads, cache, weighted
+#     )
+#     return cv.attention.attention_heads(
+#         tokens=tokens, 
+#         attention=attention_pattern, 
+#         attention_head_names=head_name_list,
+#         max_value=max_value,
+#         min_value=min_value,
+#     )
 
 
 def scatter_attention_and_contribution(
@@ -496,3 +500,79 @@ def hist_p(tensor, renderer=None, **kwargs):
         for i in range(len(fig.data)):
             fig.data[i]["name"] = names[i // 2]
     fig.show(renderer)
+
+
+# TODO: Remove
+
+def convert_title_to_filename(title: str):
+    # replace spaces with dashes, remove parentheses, and make lowercase
+    return title.replace(' ', '-').replace('(', '').replace(')', '').lower()
+
+def plot_graph_metric(
+        df, 
+        metric, 
+        perf_metric_dict, 
+        title,
+        left_y_title, 
+        y_range, 
+        x_axis_col='checkpoint', 
+        log_x=True, 
+        legend_font_size=16, 
+        axis_label_size=16, 
+        disable_title=False,
+        metric_legend_name="Circuit Edges"  # Add a parameter for the custom metric legend name
+    ):
+    # Define axis title style
+    axis_title_style = dict(size=axis_label_size)
+    
+    # Determine display title based on `disable_title` flag
+    display_title = None if disable_title else title
+
+    # Add a new column for the performance metric by mapping the checkpoint values using the perf_metric_dict
+    df['perf_metric'] = df[x_axis_col].map(perf_metric_dict).interpolate(method='linear')
+
+    # Create a copy of the dataframe with the 'metric' column renamed for the legend
+    plot_df = df.rename(columns={metric: metric_legend_name})
+
+    # Plot with plotly express, using the renamed dataframe
+    fig = px.line(plot_df, width=1200, x=x_axis_col, y=[metric_legend_name], title=display_title, log_x=log_x)
+
+    # Specify colors for each line and update traces
+    colors = {metric_legend_name: 'lightblue', 'perf_metric': 'black'}
+    for trace in fig.data:
+        trace.update(line=dict(color=colors[trace.name]))
+    
+    # Add the performance metric line with a custom name if necessary
+    fig.add_trace(
+        go.Scatter(x=df[x_axis_col], y=df['perf_metric'], name='Logit Diff', mode='lines', yaxis='y2', line=dict(color=colors['perf_metric']))
+    )
+
+    # Consolidate layout updates
+    fig.update_layout(
+        xaxis=dict(
+            title="Training Checkpoint", 
+            title_font=axis_title_style
+        ),
+        yaxis=dict(
+            range=[0, y_range], 
+            title=left_y_title, 
+            title_font=axis_title_style
+        ),
+        yaxis2=dict(
+            range=[0, 6], 
+            title="Logit Difference", 
+            overlaying="y", 
+            side="right", 
+            showgrid=False, 
+            title_font=axis_title_style
+        ),
+        legend=dict(
+            font=dict(size=legend_font_size),
+            title_text="Metrics",
+        )
+    )
+
+    # Display and save the figure
+    fig.show()
+    filename = "results/plots/" + convert_title_to_filename(title) + ".pdf"
+    fig.write_image(filename, format='pdf', width=800, height=400, engine="kaleido")
