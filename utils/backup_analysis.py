@@ -26,6 +26,7 @@ import transformer_lens.patching as patching
 import plotly.express as px
 
 from utils.metrics import compute_logit_diff, _logits_to_mean_logit_diff
+from utils.component_evaluation import compute_copy_score
 
 if torch.cuda.is_available():
     device = "cuda"
@@ -38,7 +39,8 @@ def load_model(
         variant: str = None, 
         checkpoint: int = 143000, 
         cache: str = "model_cache", 
-        device: torch.device = torch.device("cuda")
+        device: torch.device = torch.device("cuda"),
+        large_model: bool = False
     ) -> HookedTransformer:
     """
     Load a transformer model from a pretrained base model or variant.
@@ -54,17 +56,49 @@ def load_model(
         HookedTransformer: The loaded transformer model.
     """
     if not variant:
+
+        if large_model:
+            model_type = torch.bfloat16
+        else:
+            model_type = None
+
         model = HookedTransformer.from_pretrained(
             base_model,
             checkpoint_value=checkpoint,
             center_unembed=True,
             center_writing_weights=True,
             fold_ln=True,
+            device=device,
             #refactor_factored_attn_matrices=False,
-            #dtype=torch.bfloat16,
+            dtype=model_type,
+            **{"cache_dir": cache},
+        )
+    elif not variant and large_model:
+        if large_model:
+            model_type = torch.bfloat16
+        else:
+            model_type = None
+        revision = f"step{checkpoint}"
+        source_model = AutoModelForCausalLM.from_pretrained(
+           f"EleutherAI/{base_model}", revision=revision, cache_dir=cache
+        ).to(model_type).to("cpu")
+        print(f"Loaded model {variant} at {revision}; now loading into HookedTransformer")
+        model = HookedTransformer.from_pretrained(
+            base_model,
+            hf_model=source_model,
+            center_unembed=True,
+            center_writing_weights=True,
+            fold_ln=True,
+            device=device,
+            dtype=model_type,
             **{"cache_dir": cache},
         )
     else:
+        if large_model:
+            model_type = torch.bfloat16
+        else:
+            model_type = None
+
         revision = f"step{checkpoint}"
         source_model = AutoModelForCausalLM.from_pretrained(
            variant, revision=revision, cache_dir=cache
@@ -77,7 +111,7 @@ def load_model(
             center_writing_weights=True,
             fold_ln=True,
             device=device,
-            #dtype=torch.bfloat16,
+            dtype=model_type,
             **{"cache_dir": cache},
         )
 
@@ -118,88 +152,7 @@ def ablate_top_head_hook(z: TT["batch", "pos", "head_index", "d_head"], hook: Ca
     return z
 
 
-def compute_copy_score(model: HookedTransformer, layer: int, head: int, ioi_dataset: IOIDataset, verbose: bool = False, neg: bool = False) -> float:
-    """
-    Compute the copy score for a specific attention head.
 
-    Args:
-        model (HookedTransformer): The transformer model.
-        layer (int): The layer index.
-        head (int): The head index.
-        ioi_dataset (IOIDataset): The IOI dataset.
-        verbose (bool, optional): Whether to print verbose output. Defaults to False.
-        neg (bool, optional): Whether to negate the sign of the copy score. Defaults to False.
-
-    Returns:
-        float: The copy score as a percentage.
-    """
-
-    # get the activation cache from IOI dataset
-    logits, cache = model.run_with_cache(ioi_dataset.toks.long())
-    
-    # sign adjustment, optional
-    if neg:
-        sign = -1
-    else:
-        sign = 1
-
-    # pass the activations through the first layernorm for block 1 (effectively the result of layer 0's embedding behavior)
-    z_0 = cache["blocks.0.hook_resid_post"]
-
-    # pass the activations through the attention weights (values) for the head and add the bias
-    v = torch.einsum("eab,bc->eac", z_0, model.blocks[layer].attn.W_V[head])
-    v += model.blocks[layer].attn.b_V[head].unsqueeze(0).unsqueeze(0)
-
-    # pass the activations through the attention weights (output only) for the head
-    o = sign * torch.einsum("sph,hd->spd", v, model.blocks[layer].attn.W_O[head])
-
-    # unembed the activations (layernorm already folded in, so no need to pass through that)
-    logits = model.unembed(o)
-
-    k = 5
-    n_right = 0
-
-    for seq_idx, prompt in enumerate(ioi_dataset.ioi_prompts):
-        for word in ["IO", "S1", "S2"]:
-            pred_tokens = [
-                model.tokenizer.decode(token)
-                for token in torch.topk(
-                    logits[seq_idx, ioi_dataset.word_idx[word][seq_idx]], k
-                ).indices
-            ]
-            if "S" in word:
-                name = "S"
-            else:
-                name = word
-            if " " + prompt[name] in pred_tokens:
-                n_right += 1
-            else:
-                if verbose:
-                    print("-------")
-                    print("Seq: " + ioi_dataset.sentences[seq_idx])
-                    print("Target: " + ioi_dataset.ioi_prompts[seq_idx][name])
-                    print(
-                        " ".join(
-                            [
-                                f"({i+1}):{model.tokenizer.decode(token)}"
-                                for i, token in enumerate(
-                                    torch.topk(
-                                        logits[
-                                            seq_idx, ioi_dataset.word_idx[word][seq_idx]
-                                        ],
-                                        k,
-                                    ).indices
-                                )
-                            ]
-                        )
-                    )
-    percent_right = (n_right / (ioi_dataset.N * 3)) * 100
-    if percent_right > 0:
-        print(
-            f"Copy circuit for head {layer}.{head} (sign={sign}) : Top {k} accuracy: {percent_right}%"
-        )
-    model.reset_hooks()
-    return percent_right
 
 
 def residual_stack_to_logit_diff(

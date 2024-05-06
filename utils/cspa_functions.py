@@ -775,6 +775,7 @@ def get_cspa_results_batched(
     keep_self_attn: bool = True,
     computation_device = None, 
     do_running_updates: bool = False,
+    cuda_device: Optional[int] = 0,
 ) -> Dict[str, Float[Tensor, "batch seq-1"]]:
     '''
     Gets results from CSPA, by splitting the tokens along batch dimension and running it several 
@@ -793,12 +794,12 @@ def get_cspa_results_batched(
     batch_size, seq_len = toks.shape
     chunks = toks.shape[0] // max_batch_size
 
-    device = t.device("cuda" if use_cuda else "cpu")
+    device = t.device(f"cuda:{cuda_device}" if use_cuda else "cpu")
     result_mean = {k: v.to(device) for k, v in result_mean.items()}
 
     orig_model_device = str(next(iter(model.parameters())).device)
     orig_toks_device = str(toks.device)
-    target_device = "cuda" if use_cuda else "cpu"
+    target_device = f"cuda:{cuda_device}" if use_cuda else "cpu"
     if not devices_are_equal(orig_model_device, target_device):
         model = model.to(target_device)
     if not devices_are_equal(orig_toks_device, target_device):

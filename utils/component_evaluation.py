@@ -4,15 +4,14 @@ from functools import partial
 from typing import Dict, List
 
 import torch
-import numpy as np 
+import numpy as np
+from pandas import DataFrame
 from torch.utils.data import DataLoader
-from transformer_lens import HookedTransformer
+from transformer_lens import HookedTransformer, ActivationCache
 
 import pandas as pd
 import plotly.express as px
 from chart_studio import plotly as py
-
-from utils.backup_analysis import compute_copy_score
 
 from utils.cspa_main import prepare_data
 from path_patching_cm.ioi_dataset import IOIDataset
@@ -26,7 +25,121 @@ from utils.head_metrics import (
     S2I_token_pos
 )
 
-def get_cspa_for_head(model, data_toks, cspa_semantic_dict, layer, head, verbose=False):
+def concatenate_activation_caches(model, caches: List[ActivationCache]) -> ActivationCache:
+    return ActivationCache({k: torch.cat([c[k] for c in caches], dim=0) for k in caches[0].keys()}, model.cfg.model_name, True)
+
+
+def run_with_cache_batched(model: HookedTransformer, input_ids: torch.Tensor, batch_size: int = 20):
+    results = []
+    caches = []
+    total_size = input_ids.shape[0]
+    for i in range(0, total_size, batch_size):
+        # Adjust batch end index to avoid going out of bounds
+        batch_input = input_ids[i:min(i+batch_size, total_size)]
+        batch_logits, batch_cache = model.run_with_cache(batch_input)
+        # send to CPU
+        batch_logits = batch_logits.cpu()
+        batch_cache = batch_cache.to('cpu')
+        # print_gpu_memory_usage(f"Batch {i//batch_size}")
+        results.append(batch_logits)
+        caches.append(batch_cache)
+    return torch.cat(results, dim=0), concatenate_activation_caches(model, caches)
+
+
+def compute_copy_score(model: HookedTransformer, list_of_heads: List[Tuple[int, int]], ioi_dataset: IOIDataset, batch_size: int = None, verbose: bool = False, neg: bool = False) -> float:
+    """
+    Compute the copy score for a specific attention head.
+
+    Args:
+        model (HookedTransformer): The transformer model.
+        layer (int): The layer index.
+        head (int): The head index.
+        ioi_dataset (IOIDataset): The IOI dataset.
+        batch_size (int, optional): The batch size. Defaults to None.
+        verbose (bool, optional): Whether to print verbose output. Defaults to False.
+        neg (bool, optional): Whether to negate the sign of the copy score. Defaults to False.
+
+    Returns:
+        float: The copy score as a percentage.
+    """
+
+    # get the activation cache from IOI dataset
+    if not batch_size:
+        logits, cache = model.run_with_cache(ioi_dataset.toks.long())
+    else:
+        logits, cache = run_with_cache_batched(model, ioi_dataset.toks.long(), batch_size=batch_size)
+    
+    # sign adjustment, optional
+    if neg:
+        sign = -1
+    else:
+        sign = 1
+
+    copy_score_tensor = torch.zeros((model.cfg.n_layers, model.cfg.n_heads))
+
+    for layer, head in list_of_heads:
+        # pass the activations through the first layernorm for block 1 (effectively the result of layer 0's embedding behavior)
+        z_0 = cache["blocks.0.hook_resid_post"].to(model.cfg.device)
+
+
+        # pass the activations through the attention weights (values) for the head and add the bias
+        v = torch.einsum("eab,bc->eac", z_0, model.blocks[layer].attn.W_V[head])
+        v += model.blocks[layer].attn.b_V[head].unsqueeze(0).unsqueeze(0)
+
+        # pass the activations through the attention weights (output only) for the head
+        o = sign * torch.einsum("sph,hd->spd", v, model.blocks[layer].attn.W_O[head])
+
+        # unembed the activations (layernorm already folded in, so no need to pass through that)
+        logits = model.unembed(o)
+
+        k = 5
+        n_right = 0
+
+        for seq_idx, prompt in enumerate(ioi_dataset.ioi_prompts):
+            for word in ["IO", "S1", "S2"]:
+                pred_tokens = [
+                    model.tokenizer.decode(token)
+                    for token in torch.topk(
+                        logits[seq_idx, ioi_dataset.word_idx[word][seq_idx]], k
+                    ).indices
+                ]
+                if "S" in word:
+                    name = "S"
+                else:
+                    name = word
+                if " " + prompt[name] in pred_tokens:
+                    n_right += 1
+                else:
+                    if verbose:
+                        print("-------")
+                        print("Seq: " + ioi_dataset.sentences[seq_idx])
+                        print("Target: " + ioi_dataset.ioi_prompts[seq_idx][name])
+                        print(
+                            " ".join(
+                                [
+                                    f"({i+1}):{model.tokenizer.decode(token)}"
+                                    for i, token in enumerate(
+                                        torch.topk(
+                                            logits[
+                                                seq_idx, ioi_dataset.word_idx[word][seq_idx]
+                                            ],
+                                            k,
+                                        ).indices
+                                    )
+                                ]
+                            )
+                        )
+        percent_right = (n_right / (ioi_dataset.N * 3)) * 100
+        if percent_right > 0:
+            print(
+                f"Copy circuit for head {layer}.{head} (sign={sign}) : Top {k} accuracy: {percent_right}%"
+            )
+        model.reset_hooks()
+        copy_score_tensor[layer, head] = percent_right
+    return copy_score_tensor
+
+
+def get_cspa_for_head(model, data_toks, cspa_semantic_dict, layer, head, verbose=False, device=0):
 
     current_batch_size = 17 # Smaller values so we can check more checkpoints in a reasonable amount of time
     current_seq_len = 61
@@ -47,6 +160,7 @@ def get_cspa_for_head(model, data_toks, cspa_semantic_dict, layer, head, verbose
         verbose=True,
         compute_s_sstar_dict=False,
         computation_device="cpu",  # device
+        cuda_device=device
     )
     head_results = get_performance_recovered(cspa_results_qk_ov)
 
@@ -79,6 +193,7 @@ def get_attention_to_ioi_token(
     batch_count = 0
 
     for batch in ioi_dataloader:
+        # print batch number
         batch_count += 1
         toks = batch['toks']
         io_pos = batch['IO_pos']
@@ -99,8 +214,11 @@ def get_attention_to_ioi_token(
         nmh_s2_attention_values = attention_patterns_by_head[:, torch.arange(len(toks)), end_pos, s2_pos]  # batch, layer, head
         nmh_io_attention_values = attention_patterns_by_head[:, torch.arange(len(toks)), end_pos, io_pos]  # batch, layer, head
 
+        # print head_list
+        print(f"List of heads: {head_list}")
         # Accumulate attention values
         for i, (layer, head) in enumerate(head_list):
+            print(f"Layer {layer}, head {head} at index {i}")
             s1_attention_accum[layer, head] += nmh_s1_attention_values[:, i].mean()
             s2_attention_accum[layer, head] += nmh_s2_attention_values[:, i].mean()
             io_attention_accum[layer, head] += nmh_io_attention_values[:, i].mean()
@@ -114,7 +232,14 @@ def get_attention_to_ioi_token(
 
 
 # get NMH candidates
-def evaluate_direct_effect_heads(model, edge_df, dataset, verbose=False):
+def evaluate_direct_effect_heads(
+        model: HookedTransformer, 
+        edge_df: DataFrame, 
+        dataset: IOIDataset, 
+        verbose: bool = False, 
+        cuda_device: int = 0,
+        batch_size: int = 70
+    ):
     direct_effect_heads = edge_df[edge_df['target']=='logits']
     direct_effect_heads = direct_effect_heads[direct_effect_heads['in_circuit'] == True]
 
@@ -128,13 +253,11 @@ def evaluate_direct_effect_heads(model, edge_df, dataset, verbose=False):
 
 
     # Test for NMH behavior
-    head_data['copy_scores'] = torch.zeros((model.cfg.n_layers, model.cfg.n_heads))
-    for layer, head in head_list:
-        head_data['copy_scores'][layer, head] = compute_copy_score(model, layer, head, dataset, verbose=False, neg=False)
+    head_data['copy_scores'] = compute_copy_score(model, head_list, dataset, batch_size=batch_size, verbose=False, neg=False)
 
     # Test for attention to IOI tokens
-    s1_attn_scores, s2_attn_scores, io_attn_scores = get_attention_to_ioi_token(model, dataset, head_list, batch_size=70)
-    head_data['s1_attn_scores'], head_data['s2_attn_scores'], head_data['io_attn_scores'] = s1_attn_scores, s2_attn_scores, io_attn_scores
+    #s1_attn_scores, s2_attn_scores, io_attn_scores = get_attention_to_ioi_token(model, dataset, head_list, batch_size=batch_size)
+    #head_data['s1_attn_scores'], head_data['s2_attn_scores'], head_data['io_attn_scores'] = s1_attn_scores, s2_attn_scores, io_attn_scores
     
     # Test for copy suppression behavior
     model.cfg.use_split_qkv_input = False
@@ -143,7 +266,8 @@ def evaluate_direct_effect_heads(model, edge_df, dataset, verbose=False):
     head_data['copy_suppression_scores'] = torch.zeros((model.cfg.n_layers, model.cfg.n_heads))
     for layer, head in head_list:
         if layer > 1:
-            head_data['copy_suppression_scores'][layer, head] = get_cspa_for_head(model, DATA_TOKS, cspa_semantic_dict, layer, head, verbose=verbose)
+            print(f"CSPA for layer {layer}, head {head}")
+            head_data['copy_suppression_scores'][layer, head] = get_cspa_for_head(model, DATA_TOKS, cspa_semantic_dict, layer, head, verbose=verbose, device=cuda_device)
 
     model.cfg.use_split_qkv_input = True
     
@@ -251,21 +375,21 @@ def get_induction_scores(model):
     seq_len = 100
     batch_size = 2
 
-    prev_token_scores = torch.zeros((model.cfg.n_layers, model.cfg.n_heads), device="cuda")
+    prev_token_scores = torch.zeros((model.cfg.n_layers, model.cfg.n_heads), device=model.cfg.device)
 
     def prev_token_hook(pattern, hook):
         layer = hook.layer()
         diagonal = pattern.diagonal(offset=1, dim1=-1, dim2=-2)
         prev_token_scores[layer] = einops.reduce(diagonal, "batch head_index diagonal -> head_index", "mean")
 
-    duplicate_token_scores = torch.zeros((model.cfg.n_layers, model.cfg.n_heads), device="cuda")
+    duplicate_token_scores = torch.zeros((model.cfg.n_layers, model.cfg.n_heads), device=model.cfg.device)
 
     def duplicate_token_hook(pattern, hook):
         layer = hook.layer()
         diagonal = pattern.diagonal(offset=seq_len, dim1=-1, dim2=-2)
         duplicate_token_scores[layer] = einops.reduce(diagonal, "batch head_index diagonal -> head_index", "mean")
 
-    induction_scores = torch.zeros((model.cfg.n_layers, model.cfg.n_heads), device="cuda")
+    induction_scores = torch.zeros((model.cfg.n_layers, model.cfg.n_heads), device=model.cfg.device)
 
     def induction_hook(pattern, hook):
         layer = hook.layer()
@@ -273,7 +397,7 @@ def get_induction_scores(model):
         induction_scores[layer] = einops.reduce(diagonal, "batch head_index diagonal -> head_index", "mean")
 
     original_tokens = torch.randint(100, 20000, size=(batch_size, seq_len))
-    repeated_tokens = einops.repeat(original_tokens, "batch seq_len -> batch (2 seq_len)").cuda()
+    repeated_tokens = einops.repeat(original_tokens, "batch seq_len -> batch (2 seq_len)").to(model.cfg.device)
 
     pattern_filter = lambda act_name: act_name.endswith("hook_pattern")
     loss = model.run_with_hooks(repeated_tokens, return_type="loss", fwd_hooks=[(pattern_filter, prev_token_hook), (pattern_filter, duplicate_token_hook), (pattern_filter, induction_hook)])

@@ -14,6 +14,7 @@ from edge_attribution_patching.attribute_mem import attribute
 from edge_attribution_patching.evaluate_graph import evaluate_graph, evaluate_baseline
 from edge_attribution_patching.utils import kl_div
 
+from utils.data_processing import generate_in_circuit_df_files
 from utils.model_utils import load_model
 from utils.data_utils import UniversalPatchingDataset
 from utils.metrics import (
@@ -178,6 +179,15 @@ def get_ckpts(schedule):
         ckpts = (
             [i * 1000 for i in range(1, 144)]
         )
+    elif schedule == "sparse":
+        ckpts = (
+            [2**i for i in range(8, 10)]
+            + [i * 1000 for i in range(1, 10)]
+            + [i * 5000 for i in range(2, 10)]
+            + [i * 10000 for i in range(5, 10)]
+            + [i * 20000 for i in range(5, 8)]
+            + [143000]
+        )
     elif schedule == "custom":
         ckpts = []
     else:
@@ -235,18 +245,6 @@ def get_data_and_metrics(
             mode="group_sum"
         )
         metric = CircuitMetric("prob_diff", prob_diff_metric, eap = eap)
-
-    elif task_name == "sentiment_cont":
-        # Get data
-        ds = UniversalPatchingDataset.from_sentiment(model, "cont")
-        logit_diff_metric = partial(compute_logit_diff, mode="pairs")
-        metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
-
-    elif task_name == "sentiment_class":
-        # Get data
-        ds = UniversalPatchingDataset.from_sentiment(model, "class")
-        logit_diff_metric = partial(compute_logit_diff,  mode="pairs")
-        metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
 
     return ds, metric
 
@@ -419,6 +417,7 @@ def main(args):
     schedule = args.ckpt_schedule
     task = args.task
     ckpts = get_ckpts(schedule)
+    print(f"Checkpoints: {ckpts}")
     alt = args.alt_model
     model_folder = f"{alt[11:]}" if alt is not None else f"{args.model}"
     if args.custom_schedule:
@@ -499,7 +498,7 @@ def main(args):
 
         # Save graph and results
         
-        graph.to_json(f'results/graphs/{model_folder}/{task}/{ckpt}.json')
+        graph.to_json(f'results/graphs/{model_folder}/{task}/raw/{ckpt}.json')
         gz = graph.to_graphviz()
         gz.draw(f'results/images/{model_folder}/{task}/{ckpt}.png', prog='dot')
 
@@ -510,6 +509,9 @@ def main(args):
             with open(f"results/faithfulness/{model_folder}/{task}/{ckpt}.json", "w") as f:
                 print(f"Saving faithfulness to JSON for {model_folder} and {task} to {ckpt}.json...")
                 json.dump(faithfulness, f)
+    
+    
+    generate_in_circuit_df_files('results/graphs', start_checkpoint=ckpts[0], limit_to_model=model_folder, limit_to_task=task)
 
 if __name__ == "__main__":
     args = process_args()
