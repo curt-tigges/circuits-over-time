@@ -1,0 +1,8 @@
+base_model: pythia-410m
+variant: ~
+task: ioi
+cache: model_cache
+dataset_size: 70
+batch_size: 35
+checkpoint_schedule: missing
+overwrite: true

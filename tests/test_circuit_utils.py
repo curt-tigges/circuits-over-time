@@ -30,7 +30,7 @@ from neel_plotly import imshow as imshow_n
 
 from utils.visualization import imshow_p, plot_attention_heads, plot_attention
 
-from utils.visualization_utils import (
+from utils.visualization import (
     plot_attention_heads,
     scatter_attention_and_contribution,
     get_attn_head_patterns

@@ -110,7 +110,7 @@ class Node:
 
         if "hook_" in node_name:
             self.component_name = node_name.split("hook_")[-1]
-            self.layer = re.search("\.(\d)\.", node_name)
+            self.layer = re.search("\.(\d+)\.", node_name)
             if self.layer is not None: self.layer = int(self.layer.group(1))
         else:
             self.component_name = node_name
