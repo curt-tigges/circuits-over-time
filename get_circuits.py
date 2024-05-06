@@ -130,7 +130,7 @@ def get_data_and_metrics(
         task_name: str,
         eap: bool=True,
     ):
-    assert task_name in ["ioi", "greater_than", "sentiment_cont", "sentiment_class", "mood_sentiment"]
+    assert task_name in ["ioi", "greater_than", "country_capital", "capital_country", "gender_bias", "sentiment_cont", "sentiment_class", "mood_sentiment", "sva"]
 
     if task_name == "ioi":
         ds = UniversalPatchingDataset.from_ioi(model, 70)
@@ -141,6 +141,33 @@ def get_data_and_metrics(
     elif task_name == "greater_than":
         # Get data
         ds = UniversalPatchingDataset.from_greater_than(model, 200)
+        prob_diff_metric = partial(
+            compute_probability_diff, 
+            mode="group_sum"
+        )
+        metric = CircuitMetric("prob_diff", prob_diff_metric, eap = eap)
+
+    elif task_name == "country_capital":
+        # Get data
+        ds = UniversalPatchingDataset.from_country_capital(model, 200)
+        logit_diff_metric = partial(compute_logit_diff, mode="simple")
+        metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
+
+    elif task_name == "capital_country":
+        # Get data
+        ds = UniversalPatchingDataset.from_capital_country(model, 200)
+        logit_diff_metric = partial(compute_logit_diff, mode="simple")
+        metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
+
+    elif task_name == "gender_bias":
+        # Get data
+        ds = UniversalPatchingDataset.from_gender_bias(model, 200)
+        logit_diff_metric = partial(compute_logit_diff, mode="simple")
+        metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
+
+    elif task_name == "sva":
+        # Get data
+        ds = UniversalPatchingDataset.from_sva(model, 200)
         prob_diff_metric = partial(
             compute_probability_diff, 
             mode="group_sum"

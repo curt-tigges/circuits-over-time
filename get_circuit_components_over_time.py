@@ -86,6 +86,8 @@ def get_ckpts(schedule):
         ckpts = (
             [i * 1000 for i in range(4, 144)]
         )
+    elif schedule == "all":
+        ckpts = [0, *(2**i for i in range(10)), *(1000 * i for i in range(1, 144))]
     elif schedule == "sparse":
         ckpts = (
             [2**i for i in range(8, 10)]

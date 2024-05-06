@@ -1,3 +1,6 @@
 [submodule "EAP-positional"]
 	path = edge_attribution_patching
 	url = https://github.com/hannamw/EAP-positional.git
+[submodule "TransformerLens"]
+	path = TransformerLens
+	url = https://github.com/hannamw/TransformerLens.git
