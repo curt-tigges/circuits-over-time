@@ -1,0 +1,9 @@
+model: pythia-2.8b
+batch_size: 5
+ckpt: 143000
+top_n: 100
+verify: true
+start: 25
+end: 1600
+step: 25
+search_type: linear
