@@ -14,6 +14,7 @@ from edge_attribution_patching.attribute_mem import attribute
 from edge_attribution_patching.evaluate_graph import evaluate_graph, evaluate_baseline
 from edge_attribution_patching.utils import kl_div
 
+from utils.data_processing import generate_in_circuit_df_files
 from utils.model_utils import load_model
 from utils.data_utils import UniversalPatchingDataset
 from utils.metrics import (
@@ -486,7 +487,7 @@ def main(args):
 
         # Save graph and results
         
-        graph.to_json(f'results/graphs/{model_folder}/{task}/{ckpt}.json')
+        graph.to_json(f'results/graphs/{model_folder}/{task}/raw/{ckpt}.json')
         gz = graph.to_graphviz()
         gz.draw(f'results/images/{model_folder}/{task}/{ckpt}.png', prog='dot')
 
@@ -497,6 +498,9 @@ def main(args):
             with open(f"results/faithfulness/{model_folder}/{task}/{ckpt}.json", "w") as f:
                 print(f"Saving faithfulness to JSON for {model_folder} and {task} to {ckpt}.json...")
                 json.dump(faithfulness, f)
+    
+    
+    generate_in_circuit_df_files('results/graphs', start_checkpoint=ckpts[0], limit_to_model=model_folder, limit_to_task=task)
 
 if __name__ == "__main__":
     args = process_args()

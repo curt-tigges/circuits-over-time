@@ -102,6 +102,7 @@ def plot_head_circuit_scores(
         limit_to_list: List = None,
         y_label='Metric Value',
         range_y=None,
+        log_x=False,  # Added parameter to enable log scaling on x-axis
         fig_size: Tuple[int, int] = (700, 400),
         legend_font_size=16, 
         axis_label_size=16, 
@@ -111,15 +112,16 @@ def plot_head_circuit_scores(
         output_path: str = "results/plots/components/"
     ) -> pd.DataFrame:
     """
-    Plot the circuit metrics scores for attention heads across checkpoints. This can be used to plot any metric that is
+    Plot the circuit metrics scores for attention heads across checkpoints with optional logarithmic x-axis. This can be used to plot any metric that is
     stored in the checkpoint_dict with {checkpoint: numpy array} (shape: n_layers, n_heads) format. This function is more
     general than the others below.
 
-   Args:
+    Args:
         model_name (str): The name of the model for titling the plot.
         checkpoint_dict (Dict[int, np.ndarray]): A dictionary mapping checkpoints to numpy arrays of head attributions.
         title (str): The title of the plot.
         limit_to_list (List): A list of tuples containing the layer and head indices to limit the plot to.
+        log_x (bool): Whether to apply logarithmic scaling to the x-axis.
         upload (bool): Whether to upload the plot to Plotly Chart Studio.
         y_label (str): The label for the y-axis.
         show_legend (bool): Whether to display the legend.
@@ -166,8 +168,8 @@ def plot_head_circuit_scores(
         x='Checkpoint',
         y='Value',
         color='Layer-Head',
-        # limit the y-axis range
         range_y=range_y,
+        log_x=log_x,  # Apply logarithmic scale if log_x is True
         title=display_title,
         labels={'Checkpoint': 'Checkpoint', 'Value': 'Metric Value'}
     )
@@ -186,7 +188,6 @@ def plot_head_circuit_scores(
             font=dict(size=legend_font_size),
             title_text='Attention Head',
         )
-        #legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
 
     if upload:
