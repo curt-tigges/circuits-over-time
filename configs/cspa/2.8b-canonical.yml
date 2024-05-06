@@ -10,5 +10,5 @@ checkpoint_schedule:
   - 8000
   - 16000
 start_layer: 6
-device: cuda:1
+device: cuda:0
 overwrite: true

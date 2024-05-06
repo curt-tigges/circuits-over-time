@@ -181,13 +181,15 @@ def generate_in_circuit_df_files(
             for task_folder in os.listdir(model_folder_path):
                 print(f"{model_folder_path}")
                 task_folder_path = os.path.join(model_folder_path, task_folder)
+                # append the subfolder raw to the path
+                task_folder_path = os.path.join(task_folder_path, 'raw')
                 if os.path.isdir(task_folder_path): 
                     if limit_to_model is not None and model_folder != limit_to_model:
                         continue
                     if limit_to_task is not None and task_folder != limit_to_task:
                         continue
-
-                    folder_path = f'{graphs_folder}/{model_folder}/{task_folder}'
+                    
+                    folder_path = f'{graphs_folder}/{model_folder}/{task_folder}/raw'
                     df = load_edge_scores_into_dictionary(folder_path)
                     df = df[df['checkpoint'] >= start_checkpoint]
 
