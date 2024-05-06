@@ -1,7 +1,0 @@
-{
-  "model": "pythia-160m",
-  "eval_metric": "logit_diff",
-  "batch_size": 8,
-  "ckpt": 143000,
-  "cache_dir": "model_cache",
-}

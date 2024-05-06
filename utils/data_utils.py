@@ -268,6 +268,7 @@ class UniversalPatchingDataset():
 
     @classmethod
     def from_ioi(cls, model, size: int = 70):
+        model.tokenizer.add_bos_token = False
         ioi_dataset, abc_dataset = generate_data_and_caches(model, size, verbose=True)
         answer_tokens = torch.cat((torch.Tensor(ioi_dataset.io_tokenIDs).unsqueeze(1), torch.Tensor(ioi_dataset.s_tokenIDs).unsqueeze(1)), dim=1).to(device)
         answer_tokens = answer_tokens.long()
@@ -335,18 +336,6 @@ class UniversalPatchingDataset():
 
         return cls(clean, corrupted, answer_tokens, max_len, positions=positions, group_flags=group_flags)
 
-    @classmethod
-    def from_sentiment(cls, model, task_type: str):
-        if task_type == "cont":
-            ds_type = PromptType.COMPLETION_2
-        elif task_type == "class":
-            ds_type = PromptType.CLASSIFICATION_4
-        else:
-            raise ValueError(f"task_type must be 'cont' or 'class', got {task_type}")
-
-        ds = get_dataset(model, device, prompt_type=ds_type)
-        
-        return cls(ds.clean_tokens, ds.corrupted_tokens, ds.answer_tokens, 28)
 
     @classmethod
     def from_sst(cls, model, size: int = 1000):

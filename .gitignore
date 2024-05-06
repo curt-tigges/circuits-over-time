@@ -5,3 +5,5 @@ step142000/
 .Trash-0/
 .ipynb_checkpoints/
 chart_studio_api_key.txt
+auth/
+results/graphs/**/raw/

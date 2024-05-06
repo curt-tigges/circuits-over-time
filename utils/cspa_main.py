@@ -10,13 +10,7 @@ from transformer_lens import HookedTransformer
 from IPython.display import display, clear_output, HTML
 from utils.visualization import imshow_p
 
-if torch.cuda.is_available():
-    device = "cuda"
-else:
-    device = "cpu"
-
-#from transformer_lens.cautils.notebook import *
-torch.set_grad_enabled(False)
+from utils.result_plotting import display_cspa_grids
 
 from utils.cspa_functions import (
     get_cspa_results_batched,
@@ -26,6 +20,14 @@ from utils.cspa_functions import (
 from utils.cspa_extra_utils import (
     process_webtext,
 )
+
+if torch.cuda.is_available():
+    device = "cuda"
+else:
+    device = "cpu"
+
+#from transformer_lens.cautils.notebook import *
+torch.set_grad_enabled(False)
 
 
 def load_model_for_cspa(
@@ -146,13 +148,13 @@ def get_cspa_per_checkpoint(base_model, variant, cache, device, checkpoints, sta
 
 def get_cspa_for_model(model, start_layer=2):
     DATA_TOKS, DATA_STR_TOKS_PARSED, cspa_semantic_dict, indices = prepare_data(model)
-    head_results = torch.zeros((12, 12))
+    head_results = torch.zeros((model.cfg.n_layers, model.cfg.n_heads))
 
     current_batch_size = 17 # Smaller values so we can check more checkpoints in a reasonable amount of time
     current_seq_len = 61
 
-    for layer in range(start_layer, 12):
-        for head in range(12):
+    for layer in range(start_layer, model.cfg.n_layers):
+        for head in range(model.cfg.n_heads):
             start = time.time()
             result_mean = get_result_mean([(layer, head)], DATA_TOKS[:100, :], model, verbose=True)
             cspa_results_qk_ov = get_cspa_results_batched(
@@ -208,7 +210,7 @@ def get_cspa_for_head(model, data_toks, cspa_semantic_dict, layer, head):
 
     return head_results
 
-
+# TODO: Delete
 def display_cspa_grids(model_shortname, checkpoint_schedule):
     checkpoint_dict = torch.load(f'results/cspa/{model_shortname}/all_checkpoints.pt')
 
