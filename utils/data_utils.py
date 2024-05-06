@@ -276,10 +276,17 @@ class UniversalPatchingDataset():
 
     @classmethod
     def from_greater_than(cls, model, size: int = 1000):
-        ds = YearDataset(get_valid_years(model.tokenizer, 1100, 1800), size, Path("data/potential_nouns.txt"), model.tokenizer)
+        ds = YearDataset(get_valid_years(model.tokenizer, 1100, 1800), size, None, model.tokenizer)
         answer_tokens, group_flags = prepare_indices_for_prob_diff(model.tokenizer, torch.Tensor(ds.years_YY))
 
-        return cls(ds.good_toks, ds.bad_toks, answer_tokens, 12, group_flags=group_flags)
+        good_lens = ds.good_attn.sum(-1)
+        bad_lens = ds.bad_attn.sum(-1)
+        assert torch.all(good_lens == bad_lens)
+
+        max_len = good_lens.max()
+        end_idx = good_lens - 1
+
+        return cls(ds.good_toks, ds.bad_toks, answer_tokens, max_len, positions=end_idx, group_flags=group_flags)
     
     @classmethod
     def from_csv(cls, model: HookedTransformer, filename, clean_col, corrupted_col, clean_label_col, corrupted_label_col, size: int = 1000):
