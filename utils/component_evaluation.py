@@ -415,14 +415,18 @@ def evaluate_induction_scores(model, checkpoint_df):
         circuit_mask[layer, head] = 1
     
     induction_scores, prev_token_scores, duplicate_token_scores = get_induction_scores(model)
-    induction_scores = induction_scores * circuit_mask
-    prev_token_scores = prev_token_scores * circuit_mask
-    duplicate_token_scores = duplicate_token_scores * circuit_mask
+
+    induction_scores_masked = induction_scores * circuit_mask
+    prev_token_scores_masked = prev_token_scores * circuit_mask
+    duplicate_token_scores_masked = duplicate_token_scores * circuit_mask
 
     return {
-        'induction_scores': induction_scores, 
-        'prev_token_scores': prev_token_scores, 
-        'duplicate_token_scores': duplicate_token_scores
+        'induction_scores_no_mask': induction_scores, 
+        'prev_token_scores_no_mask': prev_token_scores, 
+        'duplicate_token_scores_no_mask': duplicate_token_scores,
+        'induction_scores': induction_scores_masked, 
+        'prev_token_scores': prev_token_scores_masked, 
+        'duplicate_token_scores': duplicate_token_scores_masked
     }
 
 
