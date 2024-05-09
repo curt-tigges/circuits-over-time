@@ -1,0 +1,10 @@
+model: pythia-160m
+alt_model: EleutherAI/pythia-160m-attndropout
+batch_size: 32
+ckpt: 143000
+top_n: 100
+verify: true
+start: 25
+end: 1600
+step: 25
+search_type: linear

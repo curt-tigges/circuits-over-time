@@ -153,7 +153,9 @@ def process_args():
 
 
 def get_ckpts(schedule):
-    if schedule == "linear":
+    if schedule == "all":
+        ckpts = [0, *(2**i for i in range(10)), *(i * 1000 for i in range(1, 144))]
+    elif schedule == "linear":
         ckpts = [i * 1000 for i in range(1, 144)]
     elif schedule == "exponential":
         ckpts = [
@@ -219,7 +221,7 @@ def get_data_and_metrics(
         task_name: str,
         eap: bool=True,
     ):
-    assert task_name in ["ioi", "greater_than", "sentiment_cont", "sentiment_class", "mood_sentiment"]
+    assert task_name in ["ioi", "greater_than", "sentiment_cont", "sentiment_class", "mood_sentiment", "sva"]
 
     if task_name == "ioi":
         ds = UniversalPatchingDataset.from_ioi(model, 70)
@@ -229,6 +231,15 @@ def get_data_and_metrics(
     elif task_name == "greater_than":
         # Get data
         ds = UniversalPatchingDataset.from_greater_than(model, 200)
+        prob_diff_metric = partial(
+            compute_probability_diff, 
+            mode="group_sum"
+        )
+        metric = CircuitMetric("prob_diff", prob_diff_metric, eap = eap)
+
+    elif task_name == "sva":
+        # Get data
+        ds = UniversalPatchingDataset.from_sva(model, 200)
         prob_diff_metric = partial(
             compute_probability_diff, 
             mode="group_sum"

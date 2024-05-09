@@ -5,8 +5,10 @@ from pathlib import Path
 import torch
 from transformers import PreTrainedTokenizer
 
+default_nouns = ["abduction", "accord", "affair", "agreement", "appraisal", "assaults", "assessment", "attack", "attempts", "campaign", "captivity", "case", "challenge", "chaos", "clash", "collaboration", "coma", "competition", "confrontation", "consequence", "conspiracy", "construction", "consultation", "contact", "contract", "convention", "cooperation", "custody", "deal", "decline", "decrease", "demonstrations", "development", "disagreement", "disorder", "dispute", "domination", "dynasty", "effect", "effort", "employment", "endeavor", "engagement", "epidemic", "evaluation", "exchange", "existence", "expansion", "expedition", "experiments", "fall", "fame", "flights", "friendship", "growth", "hardship", "hostility", "illness", "impact", "imprisonment", "improvement", "incarceration", "increase", "insurgency", "invasion", "investigation", "journey", "kingdom", "marriage", "modernization", "negotiation", "notoriety", "obstruction", "operation", "order", "outbreak", "outcome", "overhaul", "patrols", "pilgrimage", "plague", "plan", "practice", "process", "program", "progress", "project", "pursuit", "quest", "raids", "reforms", "reign", "relationship", "retaliation", "riot", "rise", "rivalry", "romance", "rule", "sanctions", "shift", "siege", "slump", "stature", "stint", "strikes", "study", "test", "testing", "tests", "therapy", "tour", "tradition", "treaty", "trial", "trip", "unemployment", "voyage", "warfare", "work"]
+
 def get_year_indices(tokenizer: PreTrainedTokenizer):
-    return torch.tensor([tokenizer(f'{year:02d}').input_ids[0] for year in range(100)])
+    return torch.tensor([tokenizer(f'{year:02d}', add_special_tokens=False).input_ids[0] for year in range(100)])
 
 
 def get_prob_diff(tokenizer: PreTrainedTokenizer):
@@ -29,7 +31,7 @@ def get_valid_years(
     [_ab, cd] by the input tokenizer. Here _ denotes white space.
     """
     years = [" " + str(year) for year in range(start, end)]
-    tokens = tokenizer(years)["input_ids"]
+    tokens = tokenizer(years, add_special_tokens=False)["input_ids"]
     detokenized = [tokenizer.convert_ids_to_tokens(year_toks) for year_toks in tokens]
     valid = torch.tensor([(len(detok) == 2 and len(detok[1]) == 2) for detok in detokenized])
     last_valid_index = None
@@ -116,17 +118,20 @@ class YearDataset:
         self.N = N
         self.eos=eos
 
-        if isinstance(nouns, str):
+        if nouns is None:
+            noun_list = default_nouns
+        elif isinstance(nouns, str):
             noun_list = [nouns]
         elif isinstance(nouns, list):
             noun_list = nouns
         elif isinstance(nouns, Path):
             with open(nouns, "r") as f:
                 noun_list = [line.strip() for line in f]
-                noun_list = [noun for noun in noun_list if len(tokenizer(noun).input_ids) == 1]
         else:
             raise ValueError(f"Got bad type of nouns: {type(nouns)}; for nouns: {nouns}")
 
+        #noun_list = [noun for noun in noun_list if len(tokenizer(f" {noun}", add_special_tokens=False)['input_ids']) == 1]
+        assert len(noun_list) > 0, "Noun list is empty"
         self.nouns = random.choices(noun_list, k=N)
 
         if balanced:
@@ -156,12 +161,12 @@ class YearDataset:
         self.good_prompt = real_sentence_prompt(eos=eos)
         self.bad_prompt = bad_sentence_prompt(eos=eos)
 
-        good_tokenized = tokenizer(self.good_sentences, return_tensors="pt")
-        self.good_toks, good_attn = good_tokenized["input_ids"], good_tokenized["attention_mask"]
-        assert torch.all(good_attn == 1)
-        bad_tokenized = tokenizer(self.bad_sentences, return_tensors="pt")
-        self.bad_toks, bad_attn = bad_tokenized["input_ids"], bad_tokenized["attention_mask"]
-        assert torch.all(bad_attn == 1)
+        good_tokenized = tokenizer(self.good_sentences, padding='longest', return_tensors="pt")
+        self.good_toks, self.good_attn = good_tokenized["input_ids"], good_tokenized["attention_mask"]
+        #assert torch.all(good_attn == 1)
+        bad_tokenized = tokenizer(self.bad_sentences, padding='longest', return_tensors="pt")
+        self.bad_toks, self.bad_attn = bad_tokenized["input_ids"], bad_tokenized["attention_mask"]
+        #assert torch.all(bad_attn == 1)
 
         # there's a better way to do this
         _good_logits_masks = []
