@@ -2,13 +2,10 @@ base_model: pythia-2.8b
 variant: ~
 cache: model_cache
 checkpoint_schedule:
-  - 512
   - 1000
   - 2000
   - 3000
   - 4000
-  - 8000
-  - 16000
 start_layer: 6
 device: cuda:0
 overwrite: true

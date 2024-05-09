@@ -1,3 +1,4 @@
+import os
 import einops
 from typing import Tuple, List
 from functools import partial
@@ -405,6 +406,21 @@ def get_induction_scores(model):
     return induction_scores, prev_token_scores, duplicate_token_scores
 
 
+def evaluate_induction_scores_full_model(model):
+
+    
+    induction_scores, prev_token_scores, duplicate_token_scores = get_induction_scores(model)
+    induction_scores = induction_scores
+    prev_token_scores = prev_token_scores
+    duplicate_token_scores = duplicate_token_scores
+
+    return {
+        'induction_scores': induction_scores, 
+        'prev_token_scores': prev_token_scores, 
+        'duplicate_token_scores': duplicate_token_scores
+    }
+
+
 def evaluate_induction_scores(model, checkpoint_df):
     
     circuit_heads = checkpoint_df[checkpoint_df['in_circuit'] == True]['source'].unique().tolist()
@@ -525,3 +541,12 @@ def plot_head_circuit_scores(
     fig.write_image(filename, format='pdf', width=700, height=400, engine="kaleido")
 
     return df
+
+
+# Old functions
+def load_induction_metrics(model_name: str, global_results_dir: str) -> dict:
+    metrics_path = os.path.join(f"{global_results_dir}/{model_name}-no-dropout", "induction_metrics.pt")
+    if os.path.isfile(metrics_path):
+        return torch.load(metrics_path)
+    else:
+        return {}
