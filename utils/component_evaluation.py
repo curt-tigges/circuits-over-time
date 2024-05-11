@@ -47,7 +47,14 @@ def run_with_cache_batched(model: HookedTransformer, input_ids: torch.Tensor, ba
     return torch.cat(results, dim=0), concatenate_activation_caches(model, caches)
 
 
-def compute_copy_score(model: HookedTransformer, list_of_heads: List[Tuple[int, int]], ioi_dataset: IOIDataset, batch_size: int = None, verbose: bool = False, neg: bool = False) -> float:
+def compute_copy_score(
+        model: HookedTransformer, 
+        list_of_heads: List[Tuple[int, int]], 
+        ioi_dataset: IOIDataset, 
+        batch_size: int = None, 
+        verbose: bool = False, 
+        neg: bool = False
+    ) -> torch.Tensor:
     """
     Compute the copy score for a specific attention head.
 

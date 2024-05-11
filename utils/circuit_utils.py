@@ -31,7 +31,7 @@ from utils.metrics import (
 )
 from utils.metrics import _logits_to_mean_logit_diff, _logits_to_mean_accuracy, _logits_to_rank_0_rate, CircuitMetric, get_logit_diff, ioi_metric
 
-from ACDCPP.acdcpp import get_acdcpp_results
+#from ACDCPP.acdcpp import get_acdcpp_results
 
 
 if torch.cuda.is_available():
@@ -756,28 +756,28 @@ def get_chronological_multi_task_performance(
         torch.save(metric_return, metrics_path)
     return metric_return
 
-def get_acdcpp_circuits(
-    model_name: str,
-    cache_dir: str,
-    clean_logit_diff,
-    corrupt_logit_diff,
-    ckpts,
-    clean_data,
-    corrupted_data,
-    threshold,
-    batch_size,
-):
-    previous_model = None
+# def get_acdcpp_circuits(
+#     model_name: str,
+#     cache_dir: str,
+#     clean_logit_diff,
+#     corrupt_logit_diff,
+#     ckpts,
+#     clean_data,
+#     corrupted_data,
+#     threshold,
+#     batch_size,
+# ):
+#     previous_model = None
 
-    for ckpt in ckpts:
-        # Get model
-        if previous_model is not None:
-            clear_gpu_memory(previous_model)
+#     for ckpt in ckpts:
+#         # Get model
+#         if previous_model is not None:
+#             clear_gpu_memory(previous_model)
 
-        print(f"Loading model for step {ckpt}...")
-        model = load_model(model_name,model_name, f"step{ckpt}", cache_dir = cache_dir)
-        metric = partial(ioi_metric, clean_logit_diff = clean_logit_diff, corrupt_logit_diff = corrupt_logit_diff)
-        return get_acdcpp_results(model, clean_data, corrupted_data, batch_size, threshold, metric)
+#         print(f"Loading model for step {ckpt}...")
+#         model = load_model(model_name,model_name, f"step{ckpt}", cache_dir = cache_dir)
+#         metric = partial(ioi_metric, clean_logit_diff = clean_logit_diff, corrupt_logit_diff = corrupt_logit_diff)
+#         return get_acdcpp_results(model, clean_data, corrupted_data, batch_size, threshold, metric)
 
 
 def get_chronological_multi_task_performance(
