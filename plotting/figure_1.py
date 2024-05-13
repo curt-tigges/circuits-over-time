@@ -3,47 +3,64 @@ import torch
 from pathlib import Path 
 import json 
 import matplotlib.pyplot as plt
-from utils import core_model_color_palette, core_models, color_palette, big_core_models
+from plotting_utils import core_models, color_palette
 from matplotlib.ticker import FuncFormatter
-
 
 plt.rcParams["font.family"] = 'DejaVu Serif'
 
-#%%
-def first_digit(x, pos):
-    return str(x)[0]
-
-core_model_color_palette = color_palette
 ioi_gt = torch.load('../results/task_performance_metrics/all_models_task_performance.pt')
+def load_results(task: str, model: str):
+    try:
+        if task == 'ioi':
+            return ioi_gt[model][task]['logit_diff']
+        elif task == 'greater_than':
+            return ioi_gt[model][task]['prob_diff']
+    except KeyError:
+        pass 
+    try:
+        with open(f'../results/baselines/{model}/{task}.json') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        try:
+            with open(f'/mnt/hdd-0/circuits-over-time/results/baselines/{model}/{task}.json') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            print("found none for", task, model)
+            return None
+
+
 fig, axs = plt.subplots(2,2)
 fig.set_size_inches(11, 5)
-for model in big_core_models:
-    try:
-        baseline = ioi_gt[model]['ioi']['logit_diff']
-    except KeyError:
+for model in core_models:
+    baseline = load_results('ioi', model)
+    if baseline is None:
         continue
-    xs = [int(x) for x in baseline.keys()]
-    xs.sort()
+    baseline = {int(k):v for k, v in baseline.items()}
+    xs = sorted(baseline.keys())
     xs = [x for x in xs if x > 100]
-    axs[0,0].plot(xs, [baseline[x] for x in xs], label=model, c=core_model_color_palette[model])
+    axs[0,0].plot(xs, [baseline[x] for x in xs], label=model, c=color_palette[model])
 
 axs[0,0].set_title('Indirect Object Identification')
 axs[0,0].set_ylabel('Logit Difference')
 
+for model in core_models:
+    baseline = load_results('gender_pronoun', model)
+    if baseline is None:
+        continue
+    baseline = {int(k):v for k, v in baseline.items()}
+    xs = sorted(baseline.keys())
+    xs = [x for x in xs if x > 100]
+    axs[0,1].plot(xs, [baseline[x] for x in xs], label=model, c=color_palette[model])
 axs[0,1].set_title('Gendered Pronouns')
 
-for model in big_core_models:
-    try:
-        baseline = ioi_gt[model]['greater_than']['prob_diff']
-    except KeyError:
+for model in core_models:
+    baseline = load_results('greater_than', model)
+    if baseline is None:
         continue
-
-    xs = list(baseline.keys())
-    xs.sort(key = lambda x: int(x))
-    xs = [int(x) for x in baseline.keys()]
-    xs.sort()
+    baseline = {int(k):v for k, v in baseline.items()}
+    xs = sorted(baseline.keys())
     xs = [x for x in xs if x > 100]
-    axs[1,0].plot(xs, [baseline[x] for x in xs], label=model, c=core_model_color_palette[model])
+    axs[1,0].plot(xs, [baseline[x] for x in xs], label=model, c=color_palette[model])
 
 
 axs[1,0].set_title('Greater-Than')
@@ -51,27 +68,21 @@ axs[1,0].set_ylabel('Probability Difference')
 axs[1,0].set_xlabel('Step')
 
 for model in core_models:
-    try:
-        with open(f'../results/baselines/{model}/sva.json') as f:
-            baseline = json.load(f)
-    except FileNotFoundError:
-        try:
-            with open(f'/mnt/hdd-0/circuits-over-time/results/baselines/{model}/sva.json') as f:
-                baseline = json.load(f)
-        except FileNotFoundError:
-            continue
-
-    xs = list(baseline.keys())
-    xs.sort(key = lambda x: int(x))
-    xs = [int(x) for x in baseline.keys()]
-    xs.sort()
+    baseline = load_results('sva', model)
+    if baseline is None:
+        continue
+    baseline = {int(k):v for k, v in baseline.items()}
+    xs = sorted(baseline.keys())
     xs = [x for x in xs if x > 100]
-    axs[1,1].plot(xs, [baseline[str(x)] for x in xs], label=model, c=core_model_color_palette[model])
-
-
+    if '160m' in model:
+        print("plotting 160m")
+    axs[1,1].plot(xs, [baseline[x] for x in xs], label=model, c=color_palette[model])
 axs[1,1].set_title('Subject-Verb Agreement')
 axs[1,1].set_xlabel('Step')
 
+
+def first_digit(x, pos):
+    return str(x)[0]
 
 for ax in axs.flat:
     ax.set_xscale('log')
