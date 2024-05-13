@@ -11,9 +11,8 @@ import yaml
 from torchtyping import TensorType as TT
 from transformer_lens import HookedTransformer
 
-from utils.model_utils import load_model, clear_gpu_memory
-from utils.data_utils import UniversalPatchingDataset
 import utils.circuit_utils as cu
+from utils.data_processing import get_ckpts
 
 from utils.metrics import (
     CircuitMetric,
@@ -47,68 +46,46 @@ def read_config(config_path):
         config = yaml.load(f, Loader=yaml.FullLoader)
     return config
 
-def get_ckpts(config):
-    if config["checkpoint_schedule"] == "linear":
-        ckpts = [i * 1000 for i in range(1, 144)]
-    elif config["checkpoint_schedule"] == "exponential":
-        ckpts = [
-            round((2**i) / 1000) * 1000 if 2**i > 1000 else 2**i
-            for i in range(18)
-        ]
-    elif config["checkpoint_schedule"] == "exp_plus_detail":
-        ckpts = (
-            [2**i for i in range(10)]
-            + [i * 1000 for i in range(1, 16)]
-            + [i * 5000 for i in range(4, 14)]
-            + [i * 10000 for i in range(7, 15)]
-            + [143000]
-        )
-    elif config["checkpoint_schedule"] == "special":
-        ckpts = (
-            [i * 1000 for i in range(3, 16)]
-            + [i * 5000 for i in range(4, 14)]
-            + [i * 10000 for i in range(7, 15)]
-            + [143000]
-        )
-    else:
-        ckpts = [1, 2]
 
-    return ckpts
+def process_args():
+    # Returns a namespace of arguments either from a config file or from the command line
+    args = get_args()
+    if args.config is not None:
+        config = read_config(args.config)
+        for key, value in config.items():
+            setattr(args, key, value)
+    # Placeholder to revisit when we want to add different model seed variants
+    if not args.alt_model:
+        setattr(args, "canonical_model", True)
+    else:
+        setattr(args, "canonical_model", False)
+    return args
 
 
 def main(args):
 
     torch.set_grad_enabled(False)
 
-    config = read_config(args.config)
+    args = process_args()
 
-    print(config)
+    print(args)
 
-    model_name = config["model_name"]
-    model_tl_name = config["model_tl_name"]
-
-    model_full_name = f"EleutherAI/{model_name}"
-    model_tl_full_name = f"EleutherAI/{model_tl_name}"
-
-    cache_dir = config["cache_dir"]
-    batch_size = config["batch_size"]
-
-    if "large_model" in config.keys():
-        large_model = config["large_model"]
+    if "large_model" in args:
+        large_model = args.large_model
     else:
         large_model = False
 
     # specify checkpoint schedule
-    ckpts = get_ckpts(config)
-
+    ckpts = get_ckpts(args.checkpoint_schedule)
+    print(f"Checkpoints: {ckpts}")
     # get values over time
     results_dict = cu.get_chronological_multi_task_performance(
-        model_full_name,
-        model_tl_full_name,
-        config,
-        cache_dir,
+        args.model,
+        args.alt_model,
+        args,
+        args.cache_dir,
         ckpts,
-        batch_size=batch_size,
+        batch_size=args.batch_size,
         large_model=large_model
     )
 

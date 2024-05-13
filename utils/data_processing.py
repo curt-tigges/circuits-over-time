@@ -98,6 +98,7 @@ def get_ckpts(schedule: str) -> List[int]:
     Returns:
         List[int]: The list of checkpoints to use.
     """
+    print(f"Received schedule: {schedule}")
     if schedule == "all":
         ckpts = (
             [0]

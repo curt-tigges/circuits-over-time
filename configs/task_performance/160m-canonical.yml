@@ -1,0 +1,8 @@
+model: pythia-160m
+alt_model: ~
+cache_dir: /mnt/hdd-0/circuits-over-time/model_cache/ct
+checkpoint_schedule: exp_plus_detail
+batch_size: 70
+large_model: false
+canonical_model: false
+tasks: [ioi]
