@@ -35,7 +35,7 @@ def get_args():
     parser.add_argument(
         "-c",
         "--config",
-        default="./configs/defaults.yml",
+        default="/mnt/ssd-1/qyu/circuits-over-time/configs/task_performance/gender-canonical.yml",
         help="Path to config file",
     )
     return parser.parse_args()

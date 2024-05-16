@@ -88,6 +88,22 @@ def load_edge_scores_into_dictionary(folder_path, checkpoint=None):
 
     return all_edges
 
+def load_node_dictionary(folder_path, checkpoint=None):
+    print(folder_path)
+    file_paths = glob.glob(f'{folder_path}/*.json')
+    all_nodes = {}
+    all_nodes['checkpoint'] = []
+    all_nodes['num_nodes'] = []
+    for i, file_path in enumerate(file_paths):
+        checkpoint_name = int(os.path.basename(file_path).replace('.json', ''))
+        if checkpoint is not None and checkpoint_name != checkpoint:
+            continue
+        data = read_json_file(file_path)
+        nodes = len([i for i in list(data["nodes"].keys()) if data["nodes"][i]])
+        all_nodes['checkpoint'].append(checkpoint_name)
+        all_nodes['num_nodes'].append(nodes)
+    
+    return pd.DataFrame.from_dict(all_nodes).sort_values(by = ['checkpoint'])
 
 def get_ckpts(schedule: str) -> List[int]:
     """Get the list of checkpoints to use based on the schedule.

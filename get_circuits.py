@@ -158,6 +158,12 @@ def get_data_and_metrics(
         ds = UniversalPatchingDataset.from_capital_country(model, 200)
         logit_diff_metric = partial(compute_logit_diff, mode="simple")
         metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
+    
+    elif task_name == "gender_pronoun":
+        # Get data
+        ds = UniversalPatchingDataset.from_gender_pronoun(model, 200)
+        logit_diff_metric = partial(compute_logit_diff, mode="simple")
+        metric = CircuitMetric("logit_diff", logit_diff_metric, eap = eap)
 
     elif task_name == "gender_bias":
         # Get data
