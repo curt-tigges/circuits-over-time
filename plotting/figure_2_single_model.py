@@ -60,21 +60,14 @@ def load_results_wrapped(head: str, model: str):
         print("couldn't find file for", head,  "in", model_path)
         return None
 
-        
 def load_results(head_type: str, model: str, use_tokens=True):
     baselines = load_results_wrapped(head_type, model)
     if baselines is not None and use_tokens:
         return [steps2tokens(x) for x in baselines[0]], baselines[1], baselines[2]
     return baselines
 
-thresh = 1  # right now measured in tokens; if you set tokens=False, set it as a number of steps
-fig, axs = plt.subplots(2,2)
-fig.set_size_inches(11, 5)
 def first_digit(x, pos):
     return str(x)[0]
-
-#for model in core_models:
-model = 'pythia-160m'
 
 # get all nodes that were at some point in the circuit
 def get_candidates(task: str):
@@ -96,59 +89,69 @@ def get_candidates(task: str):
     return count_dict
 
 
-gt_cand = get_candidates('greater_than')
-ioi_cand = get_candidates('ioi')
-both_cand = gt_cand | ioi_cand if (gt_cand is not None) and (ioi_cand is not None) else None
+thresh = 1  # right now measured in tokens; if you set tokens=False, set it as a number of steps
 
-style_dict = {}
-colors = list(color_palette.values())
-linestyles = ['solid', 'dashed', 'dotted']
-all_styles = [(c, ls) for ls in linestyles for c in colors]
-info_dict = {task:{} for task in ['successor', 'induction', 'copy_suppression', 'name_mover']}
-
-for ax, head_type, title, metric, candidate_nodes in zip(axs.flat, ['successor', 'induction', 'copy_suppression', 'name_mover'], ['Successor Heads', 'Induction Heads', "Copy Suppression Heads", 'Name Mover Heads'], ['Succession Score', 'Induction Score', 'CSPA Score', 'Copy Score'], [gt_cand, gt_cand, ioi_cand, ioi_cand]):
-    ax.set_title(title)
-    ax.set_ylabel(metric)
-    ax.set_xscale('log')
-    ax.xaxis.set_tick_params(which='minor', labelsize=8)
-    ax.xaxis.set_minor_formatter(FuncFormatter(first_digit))
-    ax.xaxis.set_tick_params(which='major', pad=10)
-    
-    baseline = load_results(head_type, model)
-    if baseline is None:
+# change core_models if you want to iterate over something else (e.g. 160m model variants)
+for model in core_models:
+    if '1b' in model:
         continue
-    x_axis, all_heads, scores = baseline
+    fig, axs = plt.subplots(2,2)
+    fig.set_size_inches(11, 5)
 
-    if candidate_nodes is not None:
-        candidate_nodes = Counter({k:v for k,v in candidate_nodes.items() if k in all_heads})
-        all_heads = [k for k,v in candidate_nodes.most_common(5)]
+    gt_cand = get_candidates('greater_than')
+    ioi_cand = get_candidates('ioi')
+    both_cand = gt_cand | ioi_cand if (gt_cand is not None) and (ioi_cand is not None) else None
 
-    for layer, head in all_heads:
-        #if (layer, head) not in candidate_nodes:
-        #    continue
-        if (layer, head) in style_dict:
-            c, ls = style_dict[(layer, head)]
-        else:
-            c, ls = all_styles[0]
-            all_styles = all_styles[1:]
-            style_dict[layer, head] = (c, ls)
+    style_dict = {}
+    colors = list(color_palette.values())
+    linestyles = ['solid', 'dashed', 'dotted']
+    all_styles = [(c, ls) for ls in linestyles for c in colors]
+    info_dict = {task:{} for task in ['successor', 'induction', 'copy_suppression', 'name_mover']}
 
-        info_dict[head_type][(layer, head)] = (c, ls)
-        head_scores = scores[:, layer, head].numpy()
-        ax.plot(x_axis, head_scores, label=f"({layer}, {head})", color=c, linestyle=ls)
+    for ax, head_type, title, metric, candidate_nodes in zip(axs.flat, ['successor', 'induction', 'copy_suppression', 'name_mover'], ['Successor Heads', 'Induction Heads', "Copy Suppression Heads", 'Name Mover Heads'], ['Succession Score', 'Induction Score', 'CSPA Score', 'Copy Score'], [gt_cand, gt_cand, ioi_cand, ioi_cand]):
+        ax.set_title(title)
+        ax.set_ylabel(metric)
+        ax.set_xscale('log')
+        ax.xaxis.set_tick_params(which='minor', labelsize=8)
+        ax.xaxis.set_minor_formatter(FuncFormatter(first_digit))
+        ax.xaxis.set_tick_params(which='major', pad=10)
+        
+        baseline = load_results(head_type, model)
+        if baseline is None:
+            continue
+        x_axis, all_heads, scores = baseline
 
-axs[1,0].set_xlabel('# Tokens Seen')
-axs[1,1].set_xlabel('# Tokens Seen')    
+        if candidate_nodes is not None:
+            candidate_nodes = Counter({k:v for k,v in candidate_nodes.items() if k in all_heads})
+            all_heads = [k for k,v in candidate_nodes.most_common(5)]
 
-handles_labels = [(handle, label) for ax in axs.flat for handle, label in zip(*ax.get_legend_handles_labels())] 
-labels = [hl[1] for hl in handles_labels]
-handles_labels = [hl for i, hl in enumerate(handles_labels) if hl[1] not in labels[:i]]
-# sort both labels and handles by labels
-handles, labels = zip(*sorted(handles_labels, key=lambda t: eval(t[1])))
+        for layer, head in all_heads:
+            #if (layer, head) not in candidate_nodes:
+            #    continue
+            if (layer, head) in style_dict:
+                c, ls = style_dict[(layer, head)]
+            else:
+                c, ls = all_styles[0]
+                all_styles = all_styles[1:]
+                style_dict[layer, head] = (c, ls)
 
-#handles, labels = axs[1,0].get_legend_handles_labels()
-fig.tight_layout()
-lgd = fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.02), ncol=6)
-fig.savefig(f'../results/plots/fig2/{model}.pdf', bbox_extra_artists=[lgd], bbox_inches='tight')
-fig
+            info_dict[head_type][(layer, head)] = (c, ls)
+            head_scores = scores[:, layer, head].numpy()
+            ax.plot(x_axis, head_scores, label=f"({layer}, {head})", color=c, linestyle=ls)
+
+    axs[1,0].set_xlabel('# Tokens Seen')
+    axs[1,1].set_xlabel('# Tokens Seen')    
+
+    handles_labels = [(handle, label) for ax in axs.flat for handle, label in zip(*ax.get_legend_handles_labels())] 
+    labels = [hl[1] for hl in handles_labels]
+    handles_labels = [hl for i, hl in enumerate(handles_labels) if hl[1] not in labels[:i]]
+    # sort both labels and handles by labels
+    handles, labels = zip(*sorted(handles_labels, key=lambda t: eval(t[1])))
+
+    #handles, labels = axs[1,0].get_legend_handles_labels()
+    fig.tight_layout()
+    lgd = fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.02), ncol=6)
+    fig.savefig(f'../results/plots/fig2_single_model/{model}.pdf', bbox_extra_artists=[lgd], bbox_inches='tight')
+    fig
+
 # %%
