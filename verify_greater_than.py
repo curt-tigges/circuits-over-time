@@ -69,7 +69,7 @@ def get_args() -> argparse.Namespace:
         "-grd",
         "--graph_results_dir",
         default="/mnt/hdd-0/circuits-over-time/",
-        help="dir into which to write graphs",
+        help="dir into which graphs were written",
     )
     return parser.parse_args()
 
