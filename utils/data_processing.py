@@ -84,7 +84,7 @@ def load_edge_scores_into_dictionary(folder_path, checkpoint=None):
         all_edges = pd.concat([all_edges, checkpoint_df])
         print(all_edges)
 
-    all_edges = all_edges.sort_values('checkpoint')
+    #all_edges = all_edges.sort_values('checkpoint')
 
     return all_edges
 
@@ -104,6 +104,12 @@ def get_ckpts(schedule: str) -> List[int]:
             [0]
             + [2**i for i in range(10)]
             + [i * 1000 for i in range(1, 144)]
+        )
+    elif schedule == "all_early":
+        ckpts = (
+            [0]
+            + [2**i for i in range(10)]
+            + [i * 1000 for i in range(1, 20)]
         )
     elif schedule == "linear":
         ckpts = [i * 1000 for i in range(1, 144)]
@@ -139,7 +145,7 @@ def get_ckpts(schedule: str) -> List[int]:
             + [143000]
         )
     else:
-        ckpts = [10000, 143000]
+        ckpts = [143000]
 
     return ckpts
 

@@ -12,6 +12,7 @@ import torch
 from utils.cspa_main import (
     get_cspa_per_checkpoint
 )
+from utils.data_processing import get_ckpts
 
 if torch.cuda.is_available():
     device = "cuda"
@@ -48,6 +49,8 @@ def main(args):
 
     config = read_config(args.config)
 
+    #checkpoints = get_ckpts(config['checkpoint_schedule'])
+    checkpoints = config['checkpoint_schedule']
     print(config)
 
 
@@ -56,7 +59,7 @@ def main(args):
         config['variant'], 
         config['cache'], 
         device, 
-        config["checkpoint_schedule"], 
+        checkpoints, 
         start_layer=config["start_layer"], 
         overwrite=config["overwrite"], 
         display_all=False

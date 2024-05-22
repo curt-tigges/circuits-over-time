@@ -11,10 +11,12 @@ from transformer_lens.utils import get_attention_mask
 from transformer_lens import ActivationCache, HookedTransformer
 
 import torch
+import re
+import pandas as pd
 from torchtyping import TensorType as TT
 from torch import Tensor
 from jaxtyping import Float, Int, Bool
-from typing import Tuple
+from typing import Tuple, List, Dict, Optional, Set
 import einops
 
 from fancy_einsum import einsum
@@ -30,6 +32,63 @@ if torch.cuda.is_available():
     device = int(os.environ.get("LOCAL_RANK", 0))
 else:
     device = "cpu"
+
+
+def extract_source_nodes(df):
+    # Create an empty set to store unique source nodes
+    source_nodes = set()
+    # Define the regex pattern to match 'aX.hY' format
+    pattern = re.compile(r'^a(\d+)\.h(\d+)$')
+    
+    # Iterate through the dataframe
+    for _, row in df.iterrows():
+        if row['in_circuit']:
+            # Extract the source node part from the edge
+            source_node_str = row['edge'].split('->')[0]
+            # Check if the source_node_str matches the expected pattern
+            match = pattern.match(source_node_str)
+            if match:
+                # Convert the matched groups to a tuple (int, int)
+                source_node_tuple = (int(match.group(1)), int(match.group(2)))
+                # Add the tuple to the set
+                source_nodes.add(source_node_tuple)
+            else:
+                print(f"Ignoring unexpected format for edge: {row['edge']}")
+    
+    return source_nodes
+
+def check_source_nodes(input_list, source_nodes):
+    # Create a list of booleans indicating whether each tuple is in the source_nodes set
+    return [item in source_nodes for item in input_list]
+
+
+def get_pct_effect(
+    heads: List[Tuple[int, int]], 
+    patching_res: torch.Tensor, 
+    source_nodes: Optional[Set[Tuple[int, int]]] = None
+) -> Tuple[float, float]:
+    running_total = 0.0
+    
+    # Calculate the total absolute sum of all values in patching_res
+    if source_nodes is None:
+        total_abs_sum = torch.sum(torch.abs(patching_res)).item()
+    else:
+        total_abs_sum = sum(abs(patching_res[layer, head]) 
+                            for layer in range(patching_res.shape[0]) 
+                            for head in range(patching_res.shape[1]) 
+                            if (layer, head) in source_nodes)
+    
+    # Calculate the running total for the given heads, filtered by source_nodes if provided
+    for layer, head in heads:
+        if source_nodes is None or (layer, head) in source_nodes:
+            running_total += abs(patching_res[layer, head])
+    
+    if total_abs_sum == 0:
+        return 0.0, running_total  # Handle division by zero
+    
+    pct_effect = running_total / total_abs_sum
+    return pct_effect * 100, running_total
+
 
 
 def get_final_non_pad_token(

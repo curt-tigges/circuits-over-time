@@ -23,11 +23,11 @@ def convert_title_to_filename(title: str):
     return title.replace(' ', '-').replace('(', '').replace(')', '').lower()
 
 
-def load_checkpoints(target_directory):
+def load_checkpoints(target_directory, filename='all_checkpoints.pt'):
     checkpoints_list = []
     for root, dirs, files in os.walk(target_directory):
         for dir in dirs:
-            checkpoint_path = os.path.join(root, dir, 'all_checkpoints.pt')
+            checkpoint_path = os.path.join(root, dir, filename)
             if os.path.exists(checkpoint_path):
                 checkpoints = torch.load(checkpoint_path)
                 checkpoints_list.append((dir, checkpoints))
