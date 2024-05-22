@@ -57,6 +57,7 @@ def load_model_for_cspa(
             center_unembed=True,
             center_writing_weights=True,
             fold_ln=True,
+            device=device,
             #refactor_factored_attn_matrices=False,
             #dtype=torch.bfloat16,
             **{"cache_dir": cache},
@@ -109,7 +110,7 @@ def get_cspa_per_checkpoint(base_model, variant, cache, device, checkpoints, sta
     
     model_shortname = base_model if not variant else variant[11:]
     
-    filename = f'results/cspa/{model_shortname}/all_checkpoints.pt'
+    filename = f'/mnt/hdd-0/circuits-over-time/results/components/{model_shortname}/whole_model_cspa.pt'
     directory = os.path.dirname(filename)
 
     if not os.path.exists(directory):
@@ -146,15 +147,17 @@ def get_cspa_per_checkpoint(base_model, variant, cache, device, checkpoints, sta
         
 
 
-def get_cspa_for_model(model, start_layer=2):
+def get_cspa_for_model(model, start_layer=2, cuda_device=0, head_targets=None):
     DATA_TOKS, DATA_STR_TOKS_PARSED, cspa_semantic_dict, indices = prepare_data(model)
     head_results = torch.zeros((model.cfg.n_layers, model.cfg.n_heads))
 
-    current_batch_size = 17 # Smaller values so we can check more checkpoints in a reasonable amount of time
+    current_batch_size = 10 # Smaller values so we can check more checkpoints in a reasonable amount of time
     current_seq_len = 61
 
     for layer in range(start_layer, model.cfg.n_layers):
         for head in range(model.cfg.n_heads):
+            if head_targets and (layer, head) not in head_targets:
+                continue
             start = time.time()
             result_mean = get_result_mean([(layer, head)], DATA_TOKS[:100, :], model, verbose=True)
             cspa_results_qk_ov = get_cspa_results_batched(
@@ -172,6 +175,7 @@ def get_cspa_for_model(model, start_layer=2):
                 verbose=True,
                 compute_s_sstar_dict=False,
                 computation_device="cpu",  # device
+                cuda_device=cuda_device
             )
             head_results[layer, head] = get_performance_recovered(cspa_results_qk_ov)
 
@@ -181,7 +185,7 @@ def get_cspa_for_model(model, start_layer=2):
 
 
 def get_cspa_for_head(model, data_toks, cspa_semantic_dict, layer, head):
-    head_results = torch.zeros((12, 12))
+    head_results = torch.zeros((model.cfg.n_layers, model.cfg.n_heads))
 
     current_batch_size = 17 # Smaller values so we can check more checkpoints in a reasonable amount of time
     current_seq_len = 61

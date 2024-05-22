@@ -1,10 +1,13 @@
 #%%
 from collections import Counter 
 
+import os
+
 import numpy as np
 import pandas as pd
 import torch
 from pathlib import Path 
+from typing import Dict
 import json 
 import matplotlib.pyplot as plt
 from plotting_utils import core_models, color_palette, steps2tokens
@@ -12,8 +15,19 @@ from matplotlib.ticker import FuncFormatter
 
 plt.rcParams["font.family"] = 'DejaVu Serif'
 
+
+def clean_outliers(checkpoint_dict: Dict[int, torch.Tensor], min_value: float, max_value: float) -> Dict[int, torch.Tensor]:
+    for checkpoint in checkpoint_dict.keys():
+        tensor = checkpoint_dict[checkpoint]
+        # Set values outside the range to 0.0
+        tensor = torch.where(tensor < min_value, torch.tensor(0.0), tensor)
+        tensor = torch.where(tensor > max_value, torch.tensor(0.0), tensor)
+        checkpoint_dict[checkpoint] = tensor
+    return checkpoint_dict
+
+
 def load_results_wrapped(head: str, model: str):
-    p = Path('../results/components')
+    p = Path('/mnt/hdd-0/circuits-over-time/results/c
     model_path = p/model
     try:
         if head == 'successor':
@@ -36,22 +50,24 @@ def load_results_wrapped(head: str, model: str):
             all_heads = set(zip(layers, heads))
             return steps, all_heads, head_scores
         elif head == 'copy_suppression':
-            data = torch.load('../results/components/pythia-160m/early_whole_model_copy_scores.pt')
+
+            data = torch.load(model_path / 'whole_model_cspa.pt')
+            data = clean_outliers(data, 0.0, 1.0)
             steps = sorted(list(data.keys()))
             head_scores = torch.stack([data[step].cpu() for step in steps])
-            
-            layers, heads = (x.tolist() for x in torch.where(head_scores.max(dim=0).values >= (head_scores.max() * 0.25)))
-            
+
+            layers, heads = (x.tolist() for x in torch.where(head_scores.max(dim=0).values >= (head_scores.max() * 0.15)))
+
             all_heads = set(zip(layers, heads))
             return steps, all_heads, head_scores * 0.01
         elif head == 'name_mover':
-            data = torch.load(f'/mnt/hdd-0/circuits-over-time/results/components/{model}/components_over_time.pt')
-            steps = sorted([k for k in data.keys() if data[k]['direct_effect_scores'] is not None])
-            head_scores = torch.stack([data[step]['direct_effect_scores']['copy_scores'].cpu() for step in steps])
-            
+            data = torch.load(model_path / 'early_whole_model_copy_scores.pt')
+            steps = sorted([k for k in data.keys() if data[k] is not None])
+            head_scores = torch.stack([data[step].cpu() for step in steps])
+
             layers, heads = (x.tolist() for x in torch.where(head_scores.max(dim=0).values >= (head_scores.max() * 0.25)))
-            
-            all_heads = set(zip(layers, heads))
+
+            all_heads = set(zip(layers, heads)) 
             return steps, all_heads, head_scores * 0.01
         else:
             raise ValueError(f"Got invalid head {head}")
@@ -100,7 +116,8 @@ for model in core_models:
 
     gt_cand = get_candidates('greater_than')
     ioi_cand = get_candidates('ioi')
-    both_cand = gt_cand | ioi_cand if (gt_cand is not None) and (ioi_cand is not None) else None
+
+    both_cand = {**gt_cand, **ioi_cand} if (gt_cand is not None) and (ioi_cand is not None) else None
 
     style_dict = {}
     colors = list(color_palette.values())
@@ -148,10 +165,12 @@ for model in core_models:
     # sort both labels and handles by labels
     handles, labels = zip(*sorted(handles_labels, key=lambda t: eval(t[1])))
 
+    print(model)
     #handles, labels = axs[1,0].get_legend_handles_labels()
     fig.tight_layout()
     lgd = fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.02), ncol=6)
-    fig.savefig(f'../results/plots/fig2_single_model/{model}.pdf', bbox_extra_artists=[lgd], bbox_inches='tight')
+    os.makedirs(f'/mnt/hdd-0/circuits-over-time/results/plots/fig2_single_model/', exist_ok=True)
+    fig.savefig(f'/mnt/hdd-0/circuits-over-time/results/plots/fig2_single_model/{model}.pdf', bbox_extra_artists=[lgd], bbox_inches='tight')
     fig
 
 # %%

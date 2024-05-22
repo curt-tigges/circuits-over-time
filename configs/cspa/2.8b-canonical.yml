@@ -1,11 +1,15 @@
 base_model: pythia-2.8b
 variant: ~
-cache: model_cache
+cache: /mnt/hdd-0/circuits-over-time/model_cache/ct
 checkpoint_schedule:
-  - 1000
   - 2000
   - 3000
   - 4000
+  - 8000
+  - 16000
+  - 32000
+  - 64000
+  - 143000
 start_layer: 6
-device: cuda:0
+device: cuda:1
 overwrite: true
