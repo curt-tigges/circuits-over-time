@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../../../hdd-0/circuits-over-time/results"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../test"
+		}
+	],
+	"settings": {}
+}
