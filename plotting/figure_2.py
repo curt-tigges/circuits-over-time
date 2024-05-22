@@ -1,4 +1,5 @@
 #%%
+from typing import Dict
 from collections import Counter 
 from pathlib import Path 
 import json 
@@ -11,8 +12,17 @@ from matplotlib.ticker import FuncFormatter
 
 plt.rcParams["font.family"] = 'DejaVu Serif'
 
+def clean_outliers(checkpoint_dict: Dict[int, torch.Tensor], min_value: float, max_value: float) -> Dict[int, torch.Tensor]:
+    for checkpoint in checkpoint_dict.keys():
+        tensor = checkpoint_dict[checkpoint]
+        # Set values outside the range to 0.0
+        tensor = torch.where(tensor < min_value, torch.tensor(0.0), tensor)
+        tensor = torch.where(tensor > max_value, torch.tensor(0.0), tensor)
+        checkpoint_dict[checkpoint] = tensor
+    return checkpoint_dict
+
 def load_results_double_wrapped(head: str, model:str):
-    p = Path('../results/components')
+    p = Path('/mnt/hdd-0/circuits-over-time/results/components')
     model_path = p/model
     if '1b' in model:
         return None
@@ -28,14 +38,15 @@ def load_results_double_wrapped(head: str, model:str):
             head_scores = torch.stack([data[step]['tertiary_head_scores']['induction_scores'].cpu() for step in steps])
 
         elif head == 'copy_suppression':
-            data = torch.load(f'../results/components/{model}/early_whole_model_copy_scores.pt')
+            data = torch.load(model_path / 'whole_model_cspa.pt')
+            data = clean_outliers(data, 0.0, 1.0)
             steps = sorted(list(data.keys()))
-            head_scores = torch.stack([data[step].cpu() for step in steps]) * 0.01
+            head_scores = torch.stack([data[step].cpu() for step in steps])# * 0.01
             
         elif head == 'name_mover':
-            data = torch.load(f'/mnt/hdd-0/circuits-over-time/results/components/{model}/components_over_time.pt')
-            steps = sorted([k for k in data.keys() if data[k]['direct_effect_scores'] is not None])
-            head_scores = torch.stack([data[step]['direct_effect_scores']['copy_scores'].cpu() for step in steps]) * 0.01
+            data = torch.load(model_path / 'early_whole_model_copy_scores.pt')
+            steps = sorted([k for k in data.keys()])
+            head_scores = torch.stack([data[step].cpu() for step in steps]) * 0.01
             
         else:
             raise ValueError(f"Got invalid head {head}")
@@ -66,16 +77,11 @@ def load_results_wrapped(head: str, model: str, perf_thresh=0.33):
         _, all_heads = zip(*sorted(zip(earliests, all_heads), key=lambda x: x[0]))
         return steps, all_heads, head_scores
 
-    
-
-        
 def load_results(head_type: str, model: str, use_tokens=True):
     baselines = load_results_wrapped(head_type, model)
     if baselines is not None and use_tokens:
         return [steps2tokens(x) for x in baselines[0]], baselines[1], baselines[2]
     return baselines
-
-
 
 thresh = 200000000  # right now measured in tokens; if you set tokens=False, set it as a number of steps
 fig, axs = plt.subplots(2,2)
@@ -150,14 +156,5 @@ fig.savefig('../results/plots/fig2_all_models.pdf', bbox_extra_artists=[lgd], bb
 fig.show()
 
 fig
+
 # %%
-"""
-    try: 
-        if '6.9b' in model or '12b' in model:
-            data = torch.load(f'/mnt/hdd-0/circuits-over-time/results/task_performance_metrics/{model}-no-dropout/metrics.pt')
-            d =  data[task][metric]
-            d = {k.split('step')[-1]:v.cpu() for k,v in d.items()}
-            return d
-    except KeyError:
-        pass
-"""

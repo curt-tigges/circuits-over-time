@@ -71,10 +71,11 @@ else:
 
 alt = args.alt_model
 model_folder = f"{alt[11:]}" if alt is not None else f"{args.model}"
+os.makedirs(f"results/components/{model_folder}/", exist_ok=True)
 
+accuracies = {}
 if os.path.exists(f"results/components/{model_folder}/successor_heads_over_time.pt") and not args.overwrite:
-    print(f"Found results/components/{model_folder}/successor_heads_over_time.pt, and overwrite is False; exiting")
-    exit()
+    accuracies = torch.load(f"results/components/{model_folder}/successor_heads_over_time.pt")
 #%%
 dataset = {'numbers': [str(i) for i in range(1, 201)],
 'number_words': [num2words(i) for i in range(1, 21)],
@@ -88,7 +89,6 @@ dataset = {'numbers': [str(i) for i in range(1, 201)],
 dataset = {k:[' ' + s for s in v] for k,v in dataset.items()}
 
 #%%
-accuracies = []
 if 'pythia' in args.model:
     ckpts = [0, *(2**i for i in range(10)),  *(i * 1000 for i in range(1, 144))]
 else:
@@ -98,6 +98,8 @@ else:
     ckpts.sort(key=lambda name: int(name.split('-')[0][4:]))
 
 for ckpt in ckpts:
+    if ckpt in accuracies:
+        continue
     if args.large_model or args.canonical_model:
         model = HookedTransformer.from_pretrained(
             args.model, 
@@ -169,11 +171,9 @@ for ckpt in ckpts:
 
     assert not torch.any(successes < 0)
     accuracy = successes.float().mean(-1)
-    accuracies.append(accuracy)
+    accuracies['ckpt'] = accuracy
+    torch.save(accuracies, f"results/components/{model_folder}/successor_heads_over_time.pt")
 
-accuracies = torch.stack(accuracies)
-d = {'checkpoints': ckpts, 'data': accuracies}
 
-os.makedirs(f"results/components/{model_folder}/", exist_ok=True)
-torch.save(d, f"results/components/{model_folder}/successor_heads_over_time.pt")
+
     

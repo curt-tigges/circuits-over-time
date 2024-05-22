@@ -425,9 +425,12 @@ def main(args):
 
     for ckpt in ckpts:
         # first check if graph json already exists
-        if os.path.exists(f"/mnt/hdd-0/circuits-over-time/results/graphs/{model_folder}/{args.task}/{ckpt}.json"):
+        if os.path.exists(f"/mnt/hdd-0/circuits-over-time/results/graphs/{model_folder}/{args.task}/raw/{ckpt}.json"):
+            print(f"found /mnt/hdd-0/circuits-over-time/results/graphs/{model_folder}/{args.task}/raw/{ckpt}.json")
             if not args.overwrite:
                 continue
+        else:
+            print(f"couldn't find /mnt/hdd-0/circuits-over-time/results/graphs/{model_folder}/{args.task}/raw/{ckpt}.json")
 
         os.makedirs(f"/mnt/hdd-0/circuits-over-time/results/graphs/{model_folder}/{task}", exist_ok=True)
         os.makedirs(f"/mnt/hdd-0/circuits-over-time/results/images/{model_folder}/{task}", exist_ok=True)
