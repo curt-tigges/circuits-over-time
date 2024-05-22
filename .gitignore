@@ -7,3 +7,4 @@ step142000/
 chart_studio_api_key.txt
 auth/
 results/graphs/**/raw/
+*.pyc

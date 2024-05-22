@@ -342,7 +342,7 @@ def get_data_and_metrics(
         model: HookedTransformer,
         task_name: str,
     ):
-    assert task_name in ["ioi", "greater_than", "sentiment_cont", "sentiment_class", "mood_sentiment", "sst"]
+    assert task_name in ["ioi", "greater_than", "sva", "sentiment_cont", "sentiment_class", "mood_sentiment", "sst"]
 
     if task_name == "ioi":
         ds = UniversalPatchingDataset.from_ioi(model, 70)
@@ -363,6 +363,53 @@ def get_data_and_metrics(
     elif task_name == "greater_than":
         # Get data
         ds = UniversalPatchingDataset.from_greater_than(model, 1000)
+        logit_diff_metric = partial(
+            compute_logit_diff, 
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags, 
+            mode="groups"
+        )
+        logit_diff = CircuitMetric("logit_diff", logit_diff_metric)
+        prob_diff_metric = partial(
+            compute_probability_diff, 
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="group_sum"
+        )
+        probability_diff = CircuitMetric("prob_diff", prob_diff_metric)
+        probability_mass_metric = partial(
+            compute_probability_mass,
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="group_sum"
+        )
+        probability_mass = CircuitMetric("prob_mass", probability_mass_metric)
+        accuracy_metric = partial(
+            compute_accuracy,
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="groups"
+        )
+        accuracy = CircuitMetric("accuracy", accuracy_metric)
+        mrr_metric = partial(
+            compute_mean_reciprocal_rank,
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="groups"
+        )
+        mrr = CircuitMetric("mrr", mrr_metric)
+        max_group_mrr_metric = partial(
+            compute_max_group_rank_reciprocal,
+            answer_token_indices=ds.answer_toks,
+            flags_tensor=ds.group_flags,
+            mode="groups"
+        )
+        max_group_mrr = CircuitMetric("max_group_mrr", max_group_mrr_metric)
+        metrics = [logit_diff, probability_diff, probability_mass, accuracy, mrr, max_group_mrr]
+
+    elif task_name == "sva":
+        # Get data
+        ds = UniversalPatchingDataset.from_sva(model, 1000)
         logit_diff_metric = partial(
             compute_logit_diff, 
             answer_token_indices=ds.answer_toks,
@@ -803,7 +850,7 @@ def get_chronological_multi_task_performance(
     Returns:
         dict: Dictionary of performance over time for each task.
     """
-    global_results_dir = f"../results/{config.model}-no-dropout"
+    global_results_dir = f"/mnt/hdd-0/circuits-over-time/results/task_performance_metrics/{config.model}-no-dropout"
     os.makedirs(global_results_dir, exist_ok=True)
     metrics_path = os.path.join(global_results_dir, "metrics.pt")
 
@@ -812,6 +859,10 @@ def get_chronological_multi_task_performance(
         metric_return = torch.load(metrics_path)
     else:
         metric_return = {task: {} for task in config.tasks}
+
+    for task in config.tasks:
+        if task not in metric_return:
+            metric_return[task] = {}
 
     for ckpt in ckpts:
         ckpt_key = f"step{ckpt}"

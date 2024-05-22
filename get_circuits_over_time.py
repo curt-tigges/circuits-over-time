@@ -83,7 +83,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument(    
         "-cd",
         "--cache_dir",
-        default="model_cache",
+        default="/mnt/hdd-0/circuits-over-time/model_cache",
         help="Directory for cache",
     )
     parser.add_argument(
@@ -425,14 +425,17 @@ def main(args):
 
     for ckpt in ckpts:
         # first check if graph json already exists
-        if os.path.exists(f"results/graphs/{model_folder}/{args.task}/{ckpt}.json"):
+        if os.path.exists(f"/mnt/hdd-0/circuits-over-time/results/graphs/{model_folder}/{args.task}/raw/{ckpt}.json"):
+            print(f"found /mnt/hdd-0/circuits-over-time/results/graphs/{model_folder}/{args.task}/raw/{ckpt}.json")
             if not args.overwrite:
                 continue
+        else:
+            print(f"couldn't find /mnt/hdd-0/circuits-over-time/results/graphs/{model_folder}/{args.task}/raw/{ckpt}.json")
 
-        os.makedirs(f"results/graphs/{model_folder}/{task}", exist_ok=True)
-        os.makedirs(f"results/images/{model_folder}/{task}", exist_ok=True)
-        os.makedirs(f"results/faithfulness/{model_folder}/{task}", exist_ok=True)
-        os.makedirs(f"results/baselines/{model_folder}", exist_ok=True)
+        os.makedirs(f"/mnt/hdd-0/circuits-over-time/results/graphs/{model_folder}/{task}", exist_ok=True)
+        os.makedirs(f"/mnt/hdd-0/circuits-over-time/results/images/{model_folder}/{task}", exist_ok=True)
+        os.makedirs(f"/mnt/hdd-0/circuits-over-time/results/faithfulness/{model_folder}/{task}", exist_ok=True)
+        os.makedirs(f"/mnt/hdd-0/circuits-over-time/results/baselines/{model_folder}", exist_ok=True)
 
         print(f"Loading model for step {ckpt}...")
         if args.large_model or args.canonical_model:
@@ -459,8 +462,8 @@ def main(args):
         dataloader = DataLoader(ds, batch_size=args.batch_size, collate_fn=collate_fn)
         
         # load the baseline dict
-        if os.path.exists(f"results/baselines/{model_folder}/{task}.json"):
-            baseline_dict = json.load(open(f"results/baselines/{model_folder}/{task}.json"))
+        if os.path.exists(f"/mnt/hdd-0/circuits-over-time/results/baselines/{model_folder}/{task}.json"):
+            baseline_dict = json.load(open(f"/mnt/hdd-0/circuits-over-time/results/baselines/{model_folder}/{task}.json"))
         else:
             baseline_dict = dict()
 
@@ -469,7 +472,7 @@ def main(args):
         baseline_dict[ckpt] = baseline.item()
         
         # save the baseline dict
-        with open(f"results/baselines/{model_folder}/{task}.json", "w") as f:
+        with open(f"/mnt/hdd-0/circuits-over-time/results/baselines/{model_folder}/{task}.json", "w") as f:
             json.dump(baseline_dict, f)
 
         print(f"Baseline metric value for {args.task}: {baseline}")
@@ -498,20 +501,20 @@ def main(args):
 
         # Save graph and results
         
-        graph.to_json(f'results/graphs/{model_folder}/{task}/raw/{ckpt}.json')
+        graph.to_json(f'/mnt/hdd-0/circuits-over-time/results/graphs/{model_folder}/{task}/raw/{ckpt}.json')
         gz = graph.to_graphviz()
-        gz.draw(f'results/images/{model_folder}/{task}/{ckpt}.png', prog='dot')
+        gz.draw(f'/mnt/hdd-0/circuits-over-time/results/images/{model_folder}/{task}/{ckpt}.png', prog='dot')
 
         if args.verify:
         # Save faithfulness to JSON
             print(f"Faithfulness: {faithfulness}")
             print(f"Optimal size: {args.top_n}")
-            with open(f"results/faithfulness/{model_folder}/{task}/{ckpt}.json", "w") as f:
+            with open(f"/mnt/hdd-0/circuits-over-time/results/faithfulness/{model_folder}/{task}/{ckpt}.json", "w") as f:
                 print(f"Saving faithfulness to JSON for {model_folder} and {task} to {ckpt}.json...")
                 json.dump(faithfulness, f)
     
     
-    generate_in_circuit_df_files('results/graphs', start_checkpoint=ckpts[0], limit_to_model=model_folder, limit_to_task=task)
+    generate_in_circuit_df_files('/mnt/hdd-0/circuits-over-time/results/graphs', start_checkpoint=ckpts[0], limit_to_model=model_folder, limit_to_task=task)
 
 if __name__ == "__main__":
     args = process_args()

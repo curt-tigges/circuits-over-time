@@ -1,6 +1,8 @@
 #%%
 from collections import Counter 
+
 import os
+
 import numpy as np
 import pandas as pd
 import torch
@@ -13,6 +15,7 @@ from matplotlib.ticker import FuncFormatter
 
 plt.rcParams["font.family"] = 'DejaVu Serif'
 
+
 def clean_outliers(checkpoint_dict: Dict[int, torch.Tensor], min_value: float, max_value: float) -> Dict[int, torch.Tensor]:
     for checkpoint in checkpoint_dict.keys():
         tensor = checkpoint_dict[checkpoint]
@@ -24,12 +27,11 @@ def clean_outliers(checkpoint_dict: Dict[int, torch.Tensor], min_value: float, m
 
 
 def load_results_wrapped(head: str, model: str):
-    p = Path('/mnt/hdd-0/circuits-over-time/results/components')
+    p = Path('/mnt/hdd-0/circuits-over-time/results/c
     model_path = p/model
     try:
         if head == 'successor':
             data = torch.load(model_path / 'successor_heads_over_time.pt')
-            data = {data['checkpoints'][i]:data['data'][i] for i in range(len(data['checkpoints']))}
             steps = sorted(list(data.keys()))
             head_scores = torch.stack([data[step].cpu() for step in steps])
             layers, heads = (x.tolist() for x in torch.where(head_scores.max(dim=0).values >= (head_scores.max() * 0.4)))
@@ -48,6 +50,7 @@ def load_results_wrapped(head: str, model: str):
             all_heads = set(zip(layers, heads))
             return steps, all_heads, head_scores
         elif head == 'copy_suppression':
+
             data = torch.load(model_path / 'whole_model_cspa.pt')
             data = clean_outliers(data, 0.0, 1.0)
             steps = sorted(list(data.keys()))
@@ -113,6 +116,7 @@ for model in core_models:
 
     gt_cand = get_candidates('greater_than')
     ioi_cand = get_candidates('ioi')
+
     both_cand = {**gt_cand, **ioi_cand} if (gt_cand is not None) and (ioi_cand is not None) else None
 
     style_dict = {}
@@ -160,6 +164,7 @@ for model in core_models:
     handles_labels = [hl for i, hl in enumerate(handles_labels) if hl[1] not in labels[:i]]
     # sort both labels and handles by labels
     handles, labels = zip(*sorted(handles_labels, key=lambda t: eval(t[1])))
+
     print(model)
     #handles, labels = axs[1,0].get_legend_handles_labels()
     fig.tight_layout()
