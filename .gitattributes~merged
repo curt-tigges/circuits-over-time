@@ -1,5 +1,0 @@
-*.json filter=lfs diff=lfs merge=lfs -text
-<<<<<<< HEAD
-results/pythia-160m-acdcpp-0.02.json filter=lfs diff=lfs merge=lfs -text
-=======
->>>>>>> f1733e16f978df024943b52e381a47e57dc92f8b

@@ -1,7 +1,0 @@
-All birds are warm-blooded. Penguins are birds. Therefore, penguins are
-Amphibians are able to breathe through their skin. Frogs are amphibians. Therefore, frogs are
-All plants are autotrophs. Ferns are plants. Therefore, ferns are
-All birds are oviparous. Eagles are birds. Therefore, eagles are
-All flowers are angiosperms. Daisies are flowers. Therefore, daisies are
-
- warm, cold; able, unable; aut, heter; ov, viv; ang, gym;

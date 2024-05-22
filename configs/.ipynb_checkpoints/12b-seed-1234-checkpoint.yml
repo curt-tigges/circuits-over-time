@@ -1,6 +1,0 @@
-{
-  "model_name": "pythia-12b",
-  "model_tl_name": "pythia-12b",
-  "cache_dir": "model_cache",
-  "checkpoint_schedule": "exp_plus_detail",
-}

@@ -1,9 +1,0 @@
-base_model: pythia-160m
-variant: EleutherAI/pythia-160m-data-seed1
-task: ioi
-cache: model_cache
-dataset_size: 70
-batch_size: 70
-checkpoint_schedule: other
-device: cuda:4
-overwrite: false

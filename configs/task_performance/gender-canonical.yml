@@ -1,8 +1,0 @@
-model: pythia-12b
-alt_model: ~
-cache_dir: /mnt/hdd-0/circuits-over-time/model_cache
-checkpoint_schedule: all
-batch_size: 70
-large_model: false
-canonical_model: false
-tasks: [gender_pronoun]

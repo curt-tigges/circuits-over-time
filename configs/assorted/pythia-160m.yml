@@ -1,8 +1,0 @@
-{
-  "model_name": "pythia-160m",
-  "model_tl_name": "pythia-160m",
-  #"cache_dir": "model_cache",
-  "cache_dir": "/media/curttigges/project-files/projects/circuits",
-  "checkpoint_schedule": "other",
-  "batch_size": 70,
-}

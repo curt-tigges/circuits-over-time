@@ -1,9 +1,0 @@
-base_model: pythia-1.4b
-variant: ~
-task: ioi
-cache: /mnt/hdd-0/circuits-over-time/model_cache/ct
-dataset_size: 70
-batch_size: 32
-checkpoint_schedule: all
-overwrite: false
-device: cuda:1
