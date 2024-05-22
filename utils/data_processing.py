@@ -100,8 +100,9 @@ def load_node_dictionary(folder_path, checkpoint=None):
             continue
         data = read_json_file(file_path)
         nodes = len([i for i in list(data["nodes"].keys()) if data["nodes"][i]])
-        all_nodes['checkpoint'].append(checkpoint_name)
-        all_nodes['num_nodes'].append(nodes)
+        if nodes != 0:
+            all_nodes['checkpoint'].append(checkpoint_name)
+            all_nodes['num_nodes'].append(nodes)
     
     return pd.DataFrame.from_dict(all_nodes).sort_values(by = ['checkpoint'])
 
@@ -174,7 +175,7 @@ def convert_checkpoint_steps_to_tokens(checkpoints: List[int]) -> List[int]:
 
 def generate_in_circuit_df_files(
         graphs_folder: str,
-        start_checkpoint: int = 4000, 
+        start_checkpoint: int = 0, 
         limit_to_model: Optional[str] = None, 
         limit_to_task: Optional[str] = None
     ) -> None:
@@ -199,6 +200,7 @@ def generate_in_circuit_df_files(
                 print(f"{model_folder_path}")
                 task_folder_path = os.path.join(model_folder_path, task_folder)
                 # append the subfolder raw to the path
+                task_folder_path = os.path.join(task_folder_path, 'faithful')
                 task_folder_path = os.path.join(task_folder_path, 'raw')
                 if os.path.isdir(task_folder_path): 
                     if limit_to_model is not None and model_folder != limit_to_model:
@@ -206,14 +208,15 @@ def generate_in_circuit_df_files(
                     if limit_to_task is not None and task_folder != limit_to_task:
                         continue
                     
-                    folder_path = f'{graphs_folder}/{model_folder}/{task_folder}/raw'
+                    folder_path = f'{graphs_folder}/{model_folder}/{task_folder}/faithful/raw'
                     df = load_edge_scores_into_dictionary(folder_path)
                     df = df[df['checkpoint'] >= start_checkpoint]
 
                     in_circuit_df = df[df['in_circuit'] == True]
 
                     in_circuit_df.reset_index(drop=True, inplace=True)
-                    in_circuit_df.to_feather(f'{graphs_folder}/{model_folder}/{task_folder}/in_circuit_edges.feather')
+                    in_circuit_df.to_feather(f'{graphs_folder}/{model_folder}/{task_folder}/in_circuit_edges_faithful.feather')
+                    print(in_circuit_df)
 
 
 
@@ -432,12 +435,28 @@ def compute_jaccard_similarity(df):
     # Iterate over pairs of adjacent checkpoints
     for i in range(len(checkpoints) - 1):
         # Get the sets of edges for each checkpoint
-        edges_1 = set(df[(df['checkpoint'] == checkpoints[i]) & (df['in_circuit'] == True)]['edge'])
-        edges_2 = set(df[(df['checkpoint'] == checkpoints[i + 1]) & (df['in_circuit'] == True)]['edge'])
+        nodes_1_ = list(set(df[(df['checkpoint'] == checkpoints[i]) & (df['in_circuit'] == True)]['edge']))
+        nodes_2_ = list(set(df[(df['checkpoint'] == checkpoints[i + 1]) & (df['in_circuit'] == True)]['edge']))
+        nodes_1 = []
+        nodes_2 = []
+        for j in nodes_1_:
+            s = j.split("->")
+            s[0] = s[0].split("<")[0]
+            s[1] = s[1].split("<")[0]
+            nodes_1.append(s[0])
+            nodes_1.append(s[1])
+        for j in nodes_2_:
+            s = j.split("->")
+            s[0] = s[0].split("<")[0]
+            s[1] = s[1].split("<")[0]
+            nodes_2.append(s[0])
+            nodes_2.append(s[1])
+        nodes_1 = set(nodes_1)
+        nodes_2 = set(nodes_2)
 
         # Calculate the Jaccard similarity
-        intersection = len(edges_1 & edges_2)
-        union = len(edges_1 | edges_2)
+        intersection = len(nodes_1 & nodes_2)
+        union = len(nodes_1 | nodes_2)
         jaccard_similarity = intersection / union if union != 0 else 0
 
         # Append the results for this pair of checkpoints
@@ -488,6 +507,44 @@ def compute_jaccard_similarity_to_reference(df, reference_checkpoint):
     # Convert the results to a DataFrame and return
     return pd.DataFrame(results)
 
+def compute_node_jaccard_similarity(df):
+
+    df = df.sort_values(by='checkpoint')
+
+    # Normalize the scores by dividing by the sum of absolute scores within each checkpoint
+    df['normalized_abs_score'] = df.groupby('checkpoint')['score'].transform(lambda x: x.abs() / x.abs().sum())
+
+    print(df)
+
+    # Initialize a list to store the results
+    results = []
+
+    # Iterate over pairs of adjacent checkpoints
+    for i in range(len(checkpoints) - 1):
+        # Get the data for each checkpoint
+        df_1 = df[(df['checkpoint'] == checkpoints[i]) & (df['in_circuit'] == True)]
+        df_2 = df[(df['checkpoint'] == checkpoints[i + 1]) & (df['in_circuit'] == True)]
+
+        # Create dictionaries mapping edges to their normalized absolute scores
+        scores_1 = dict(zip(df_1['edge'], df_1['normalized_abs_score']))
+        scores_2 = dict(zip(df_2['edge'], df_2['normalized_abs_score']))
+
+        # Calculate the weighted intersection and union
+        weighted_intersection = sum(min(scores_1.get(edge, 0), scores_2.get(edge, 0)) for edge in set(scores_1) | set(scores_2))
+        weighted_union = sum(max(scores_1.get(edge, 0), scores_2.get(edge, 0)) for edge in set(scores_1) | set(scores_2))
+
+        # Calculate the weighted Jaccard similarity
+        weighted_jaccard_similarity = weighted_intersection / weighted_union if weighted_union != 0 else 0
+
+        # Append the results for this pair of checkpoints
+        results.append({
+            'checkpoint_1': checkpoints[i],
+            'checkpoint_2': checkpoints[i + 1],
+            'jaccard_similarity': weighted_jaccard_similarity
+        })
+
+    # Convert the results to a DataFrame and return
+    return pd.DataFrame(results)
 
 def compute_weighted_jaccard_similarity(df):
     # Ensure the dataframe is sorted by checkpoint

@@ -307,7 +307,7 @@ class UniversalPatchingDataset():
         corrupted_label_idx = torch.tensor(df[corrupted_label_col].tolist())
         answer_tokens = torch.stack([clean_label_idx, corrupted_label_idx], dim=1)
 
-        return cls(good_toks['input_ids'].cuda(), bad_toks['input_ids'].cuda(), answer_tokens.cuda(), max_len.cuda(), end_idx.cuda())
+        return cls(good_toks['input_ids'], bad_toks['input_ids'], answer_tokens, max_len, end_idx)
 
     @classmethod
     def from_capital_country(cls, model: HookedTransformer, size: int = 1000):
